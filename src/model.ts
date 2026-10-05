@@ -6,6 +6,21 @@ export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:270,y:280},{x:420,y:34
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
 export const GUN={x:480,y:550};
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
+function segmentDistance(p:Point,a:Point,b:Point){
+  const dx=b.x-a.x,dy=b.y-a.y;
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.max(1,dx*dx+dy*dy)));
+  return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+}
+function hitsWall(a:Point,b:Point,w:{x:number;y:number;w:number;h:number}){
+  // Slab intersection catches fast bullets that cross a wall between frames.
+  let lo=0,hi=1;
+  for(const [start,delta,min,max] of [[a.x,b.x-a.x,w.x,w.x+w.w],[a.y,b.y-a.y,w.y,w.y+w.h]]){
+    if(Math.abs(delta)<.0001){if(start<min||start>max)return false;continue;}
+    const first=(min-start)/delta,last=(max-start)/delta;
+    lo=Math.max(lo,Math.min(first,last));hi=Math.min(hi,Math.max(first,last));if(lo>hi)return false;
+  }
+  return true;
+}
 export class RescueMission{
   units:Unit[]=[];bullets:Bullet[]=[];events:MissionEvent[]=[];
   time=0;rescued=0;lost=0;released=0;kills=0;health=100;ammo=24;reloadTime=0;fireCooldown=0;angle=-Math.PI/2;state:'playing'|'won'|'lost'='playing';
@@ -57,13 +72,14 @@ export class RescueMission{
       const d=distance(u,target);if(u.kind!=='raider'||d>135){u.x+=(target.x-u.x)/Math.max(d,1)*u.speed*dt;u.y+=(target.y-u.y)/Math.max(d,1)*u.speed*dt;}
     }
     for(const b of this.bullets){
+      const previous={x:b.x,y:b.y};
       b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
       if(b.life<=0)continue;
-      if(WALLS.some(w=>b.x>w.x&&b.x<w.x+w.w&&b.y>w.y&&b.y<w.y+w.h)){b.life=0;this.events.push({kind:'hit',x:b.x,y:b.y});continue;}
-      if(b.side==='enemy'&&distance(b,GUN)<27){b.life=0;this.health-=7;this.events.push({kind:'hit',...GUN});continue;}
+      if(WALLS.some(w=>hitsWall(previous,b,w))){b.life=0;this.events.push({kind:'hit',x:b.x,y:b.y});continue;}
+      if(b.side==='enemy'&&segmentDistance(GUN,previous,b)<27){b.life=0;this.health-=7;this.events.push({kind:'hit',...GUN});continue;}
       for(const u of this.units){
         if(!u.alive||(b.side==='enemy'&&u.kind!=='prisoner'))continue;
-        const d=distance(b,u);
+        const d=segmentDistance(u,previous,b);
         if(b.side==='player'&&u.kind==='prisoner'&&d<38&&d>=12&&this.nearTimer<=0){this.nearTimer=7;this.events.push({kind:'near',x:u.x,y:u.y});}
         if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y});}else this.kills++;}break;}
       }

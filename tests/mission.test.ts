@@ -24,3 +24,12 @@ test('sapper overruns gun and defeats the player at zero health',()=>{
 test('simulation freezes after a result and caps large frame deltas',()=>{
   const m=new RescueMission(()=>.5);m.update(10);assert.equal(m.time,.05);m.state='won';m.update(.05);assert.equal(m.time,.05);
 });
+test('fast bullets hit targets between frames instead of passing through',()=>{
+  const m=new RescueMission(()=>.5);
+  m.units=[{id:0,kind:'sapper',x:480,y:480,hp:1,speed:0,waypoint:0,fireTimer:0,alive:true,step:0}];
+  m.bullets=[{x:480,y:500,vx:0,vy:-780,side:'player',life:1}];m.update(.05);assert.equal(m.kills,1);
+});
+test('cover blocks bullets crossing an entire wall in one frame',()=>{
+  const m=new RescueMission(()=>.5);
+  m.bullets=[{x:260,y:220,vx:0,vy:-780,side:'player',life:1}];m.update(.05);assert.equal(m.bullets.length,0);
+});
