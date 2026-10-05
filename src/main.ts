@@ -1,0 +1,186 @@
+import type * as PhaserType from 'phaser';
+import { RescueMission, ROUTE, WALLS, GUN, type MissionEvent, type Unit } from './model.ts';
+import './style.css';
+declare const Phaser: typeof PhaserType;
+
+const $=(id:string)=>document.getElementById(id)!;
+const held=new Set<string>();
+let firing=false;
+let soundOn=true,voiceOn=true;
+try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
+let audio:AudioContext|undefined;
+function unlockAudio(){audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();}
+function tone(frequency:number,duration:number,type:OscillatorType='square',volume=.035){
+  if(!soundOn||!audio)return;
+  const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=frequency;
+  g.gain.setValueAtTime(volume,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);
+  o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration);
+}
+function gunSound(){if(!soundOn||!audio)return;tone(95,.055,'sawtooth',.06);tone(650,.024,'square',.018);}
+function speak(line:string){
+  if(!voiceOn||!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(line);utterance.rate=1.15;utterance.pitch=.72;utterance.volume=.8;speechSynthesis.speak(utterance);
+}
+type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
+const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
+overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>COVER THEIR ESCAPE.</h2><p>Twelve prisoners. One gun. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: drag to aim + hold FIRE</small>';
+let scene:RescueScene;
+class RescueScene extends Phaser.Scene{
+  mission=new RescueMission();started=false;paused=false;
+  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;
+  radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
+  aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
+  constructor(){super('Rescue');scene=this;}
+  create(){
+    const field=this.add.graphics();this.drawField(field);
+    this.ink=this.add.graphics();
+    this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
+    this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
+    this.input.on('pointerdown',(p:PhaserType.Input.Pointer)=>{
+      if(!this.started||this.paused||this.mission.state!=='playing')return;
+      this.focus();unlockAudio();this.aimAt(p.x,p.y);
+      if(!matchMedia('(pointer:coarse)').matches)this.pointerHeld=true;
+    });
+    this.input.on('pointermove',(p:PhaserType.Input.Pointer)=>{
+      if(!this.started||this.paused)return;
+      if(!matchMedia('(pointer:coarse)').matches||p.isDown)this.aimAt(p.x,p.y);
+    });
+    this.input.on('pointerup',()=>{this.pointerHeld=false;});
+    this.game.canvas.tabIndex=0;this.game.canvas.setAttribute('aria-label','Operation Bring Them Home rescue game');
+    this.draw();
+  }
+  focus(){this.game.canvas.focus({preventScroll:true});}
+  aimAt(x:number,y:number){this.aim={x,y};this.mission.angle=Phaser.Math.Clamp(Math.atan2(y-GUN.y,x-GUN.x),-Math.PI+.08,-.08);}
+  start(){
+    const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
+    this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();firing=false;
+    this.lastState='';overlay.hidden=true;this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
+  }
+  callout(speaker:string,line:string,force=false){
+    if(!force&&this.radioCooldown>0)return;
+    this.radio.setText(speaker+' / '+line);this.radioTime=3.2;this.radioCooldown=5;speak(line);
+  }
+  setPause(paused:boolean){
+    if(!this.started||this.mission.state!=='playing')return;
+    this.paused=paused;held.clear();firing=false;this.pointerHeld=false;
+    if(paused){if('speechSynthesis' in window)speechSynthesis.cancel();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
+    else{overlay.hidden=true;this.focus();}
+    $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
+  }
+  updateStatus(){
+    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?'EXTRACTION COMPLETE':this.mission.state==='lost'?'OPERATION LOST':'COVERING THE ESCAPE';
+  }
+  handleEvent(e:MissionEvent){
+    if(e.kind==='shot'){gunSound();this.burst(e.x+Math.cos(this.mission.angle)*28,e.y+Math.sin(this.mission.angle)*28,0xffd089,3);}
+    if(e.kind==='hit')this.burst(e.x,e.y,0xffbf65,7);
+    if(e.kind==='rescue'){tone(620,.15,'triangle',.04);this.callout('PRISONER',['We made it! Keep them coming!','One more heading home!','Thank you! Get the others!'][this.mission.rescued%3]);}
+    if(e.kind==='near')this.callout('PRISONER',"Easy! We're on your side!");
+    if(e.kind==='loss'){tone(130,.3,'sawtooth');this.callout('CONTROL','We lost one. Watch the orange uniforms.',true);}
+    if(e.kind==='enemy')this.callout('CONTROL','Sapper on the left. Protect your position.');
+    if(e.kind==='reload'){tone(360,.07);}
+  }
+  update(_time:number,delta:number){
+    const dt=Math.min(delta/1000,.05);this.tick+=dt;
+    if(!this.paused){
+      this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
+      if(this.started&&this.mission.state==='playing'){
+        const direction=(held.has('KeyD')||held.has('ArrowRight')?1:0)-(held.has('KeyA')||held.has('ArrowLeft')?1:0);
+        if(direction){this.mission.angle=Phaser.Math.Clamp(this.mission.angle+direction*1.6*dt,-Math.PI+.08,-.08);this.aim={x:GUN.x+Math.cos(this.mission.angle)*380,y:GUN.y+Math.sin(this.mission.angle)*380};}
+        if(held.has('Space')||firing||this.pointerHeld)this.mission.fire();
+        this.mission.update(dt);this.mission.drainEvents().forEach(e=>this.handleEvent(e));
+        if(this.mission.state!=='playing'&&this.lastState!==this.mission.state){this.lastState=this.mission.state;this.finish();}
+      }
+      for(const s of this.sparks){s.life-=dt;s.x+=s.vx*dt;s.y+=s.vy*dt;}this.sparks=this.sparks.filter(s=>s.life>0);
+    }
+    this.draw();
+  }
+  finish(){
+    held.clear();firing=false;this.pointerHeld=false;this.updateStatus();
+    const won=this.mission.state==='won',m=this.mission;
+    this.callout('CONTROL',won?'Extraction confirmed. You brought them home.':'Pull back. The operation is over.',true);
+    overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Next up: the helicopter escape.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
+  }
+  burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
+  drawField(g:PhaserType.GameObjects.Graphics){
+    g.fillStyle(0x293728);g.fillRect(0,0,960,600);
+    // Deterministic field texture: terrain details remain still during combat.
+    let seed=47;const rand=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+    for(let i=0;i<1600;i++){const x=rand()*960,y=rand()*600;g.fillStyle(i%2?0x344431:0x223121,.6);g.fillRect(x,y,2+rand()*5,2);}
+    g.fillStyle(0x1c2822);g.fillRect(0,70,180,130);g.fillStyle(0x606958);g.fillRect(15,81,157,13);g.fillRect(15,81,12,116);g.fillRect(15,184,160,13);
+    for(let x=32;x<164;x+=12){g.lineStyle(1,0xa1ac8a,.6);g.lineBetween(x,94,x,184);}g.fillStyle(0x111e19);g.fillRect(79,131,104,32);
+    this.add.text(30,111,'HOLDING\nCOMPOUND',{fontFamily:'monospace',fontSize:'12px',color:'#a8b398'});
+    g.lineStyle(30,0x596047,.5);g.beginPath();g.moveTo(ROUTE[0].x,ROUTE[0].y);ROUTE.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.strokePath();
+    g.lineStyle(2,0xc1b680,.35);
+    for(let i=1;i<ROUTE.length;i++){const a=ROUTE[i-1],b=ROUTE[i],d=Math.hypot(b.x-a.x,b.y-a.y);for(let t=0;t<d;t+=24){g.lineBetween(a.x+(b.x-a.x)*t/d,a.y+(b.y-a.y)*t/d,a.x+(b.x-a.x)*Math.min(t+10,d)/d,a.y+(b.y-a.y)*Math.min(t+10,d)/d);}}
+    for(const w of WALLS){g.fillStyle(0x101a16,.5);g.fillRect(w.x+5,w.y+8,w.w,w.h);g.fillStyle(0x92906b);g.fillRect(w.x,w.y,w.w,w.h);for(let x=w.x;x<w.x+w.w;x+=23){g.lineStyle(2,0x5c624a);g.lineBetween(x,w.y,x,w.y+w.h);}}
+    this.add.text(255,168,'COVER A',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});this.add.text(550,265,'COVER B',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});
+    // Extraction truck and perimeter.
+    g.fillStyle(0x19261c);g.fillRect(818,431,125,64);g.lineStyle(2,0xa6ba82);g.strokeRect(818,431,125,64);
+    g.fillStyle(0x586d43);g.fillRect(862,436,62,45);g.fillStyle(0x6f8551);g.fillRect(925,446,20,35);g.fillStyle(0xa9c5bb);g.fillRect(928,449,13,10);g.fillStyle(0x0c1510);g.fillRect(873,478,13,9);g.fillRect(927,478,13,9);
+    this.add.text(824,408,'EXTRACTION →',{fontFamily:'monospace',fontSize:'13px',color:'#c2dca2'});
+    // Hostile fortification.
+    g.fillStyle(0x1a251e);g.fillRect(830,99,130,148);g.lineStyle(2,0x55614a);g.strokeRect(830,99,130,148);g.fillStyle(0x584d40);g.fillRect(851,124,95,49);g.fillStyle(0x1b2018);g.fillRect(864,133,65,15);
+    this.add.text(835,77,'HOSTILE SECTOR',{fontFamily:'monospace',fontSize:'11px',color:'#c29677'});
+    // Player gun pit.
+    g.fillStyle(0x131d18);g.fillEllipse(480,551,119,68);g.lineStyle(12,0x7a7c58);g.strokeEllipse(480,555,124,64);
+    g.fillStyle(0x18241d,.95);g.fillRect(0,0,960,62);g.lineStyle(1,0x7a8e62);g.lineBetween(0,62,960,62);
+    // A subtle scanline treatment.
+    for(let y=0;y<600;y+=4){g.fillStyle(0x000000,.055);g.fillRect(0,y,960,1);}
+  }
+  drawUnit(g:PhaserType.GameObjects.Graphics,u:Unit){
+    const x=Math.round(u.x),y=Math.round(u.y),step=Math.sin(u.step)>0?2:-2;
+    g.fillStyle(0x0a130e,.45);g.fillEllipse(x+2,y+10,18,7);
+    const uniform=u.kind==='prisoner'?0xe9a153:u.kind==='sapper'?0x866d53:0x6b7856;
+    g.fillStyle(0xd3b993);g.fillRect(x-3,y-12,6,5);g.fillStyle(uniform);g.fillRect(x-5,y-6,10,10);g.fillRect(x-8,y-4+step,3,8);g.fillRect(x+5,y-4-step,3,8);
+    g.fillStyle(0x242d20);g.fillRect(x-5,y+4,4,7+step);g.fillRect(x+1,y+4,4,7-step);
+    if(u.kind!=='prisoner'){g.fillStyle(0xc76648);g.fillRect(x-5,y-14,10,4);g.fillStyle(0x1c241d);g.fillRect(x-7,y-1,14,3);if(u.kind==='sapper'){g.fillStyle(0xc9ac6b);g.fillRect(x-4,y-3,8,5);}}
+    if(u.hp===1&&u.kind!=='prisoner'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-19,7,2);}
+  }
+  draw(){
+    const m=this.mission,g=this.ink;g.clear();
+    m.units.forEach(u=>this.drawUnit(g,u));
+    m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.012,b.y-b.vy*.012);});
+    g.fillStyle(0x879071);g.fillCircle(GUN.x,GUN.y,18);g.lineStyle(11,0x222c23);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*38,GUN.y+Math.sin(m.angle)*38);g.lineStyle(5,0xc1b98e);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*40,GUN.y+Math.sin(m.angle)*40);
+    g.fillStyle(0xbeab83);g.fillRect(470,546,20,15);g.fillStyle(0x283c27);g.fillRect(474,541,12,8);
+    if(this.started&&m.state==='playing'){
+      const x=this.aim.x,y=Math.min(this.aim.y,515);g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(x,y,14);g.lineBetween(x-21,y,x-7,y);g.lineBetween(x+7,y,x+21,y);g.lineBetween(x,y-21,x,y-7);g.lineBetween(x,y+7,x,y+21);
+    }
+    for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
+    const remaining=Math.max(0,120-Math.floor(m.time)),seconds=String(remaining%60).padStart(2,'0');
+    this.hud.setText(`RESCUED ${String(m.rescued).padStart(2,'0')} / 08     LOST ${m.lost} / 04     GUN ${m.health}%     ${Math.floor(remaining/60)}:${seconds}\n${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+String(m.ammo).padStart(2,'0')+' / 24'}     HOSTILES ${m.kills}     ${m.difficulty.toUpperCase()}`);
+    // Extraction progress remains visible without reading the HUD.
+    for(let i=0;i<8;i++){g.fillStyle(i<m.rescued?0xc8df94:0x40523b);g.fillRect(785+i*19,24,13,18);}
+    if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(480,550,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
+  }
+}
+
+if(typeof Phaser==='undefined'){
+  overlay.innerHTML='<h2>ENGINE COULD NOT LOAD</h2><p>Check your connection and reload the page.</p>';
+}else{
+  new Phaser.Game({type:Phaser.AUTO,parent:'game',width:960,height:600,backgroundColor:'#293728',pixelArt:true,antialias:false,scene:RescueScene,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},input:{activePointers:3},audio:{noAudio:true}});
+}
+overlay.addEventListener('click',e=>{
+  const id=(e.target as HTMLElement).id;
+  if(id==='begin'||id==='restart')scene.start();if(id==='resume')scene.setPause(false);
+});
+const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyR','KeyP','Escape','Enter']);
+document.addEventListener('keydown',e=>{
+  if(!scene?.started||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
+  e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
+  if(!e.repeat){if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
+},true);
+document.addEventListener('keyup',e=>{if(!scene?.started||!controlKeys.has(e.code))return;e.preventDefault();e.stopPropagation();held.delete(e.code);},true);
+window.addEventListener('pointerup',()=>{firing=false;if(scene)scene.pointerHeld=false;});
+window.addEventListener('pointercancel',()=>{firing=false;if(scene)scene.pointerHeld=false;});
+window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
+$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused)return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);firing=true;});
+['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,()=>firing=false));
+$('touch-reload').addEventListener('click',()=>scene?.mission.reload());
+$('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
+function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
+$('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn&&'speechSynthesis' in window)speechSynthesis.cancel();try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
+$('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
+document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
+updateToggles();
