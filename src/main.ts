@@ -54,7 +54,7 @@ class RescueScene extends Phaser.Scene{
   start(){
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();firing=false;
-    this.lastState='';overlay.hidden=true;this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
+    this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false){
     if(!force&&this.radioCooldown>0)return;
@@ -165,9 +165,9 @@ overlay.addEventListener('click',e=>{
 });
 const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyR','KeyP','Escape','Enter']);
 document.addEventListener('keydown',e=>{
-  if(!scene?.started||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
-  if(!e.repeat){if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
+  if(!e.repeat){if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
 },true);
 document.addEventListener('keyup',e=>{if(!scene?.started||!controlKeys.has(e.code))return;e.preventDefault();e.stopPropagation();held.delete(e.code);},true);
 window.addEventListener('pointerup',()=>{firing=false;if(scene)scene.pointerHeld=false;});
