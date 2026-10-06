@@ -1,6 +1,7 @@
 import type * as PhaserType from 'phaser';
 import { RescueMission, ROUTE, WALLS, GUN, type MissionEvent, type Unit } from './model.ts';
 import './style.css';
+import retroScreamUrl from './audio/retro-scream.ts';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -9,7 +10,24 @@ let firing=false;
 let soundOn=true,voiceOn=true;
 try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
 let audio:AudioContext|undefined;
-function unlockAudio(){audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();}
+let screamBuffer:AudioBuffer|undefined;
+let screamLoading:Promise<void>|undefined;
+let activeScream:AudioBufferSourceNode|undefined;
+function unlockAudio(){
+  audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();
+  screamLoading??=fetch(retroScreamUrl).then(r=>r.arrayBuffer()).then(bytes=>audio!.decodeAudioData(bytes)).then(buffer=>{screamBuffer=buffer;}).catch(()=>{});
+}
+function stopScream(){activeScream?.stop();activeScream=undefined;}
+function casualtyScream(){
+  if(!soundOn||!audio)return;
+  if(!screamBuffer){tone(130,.3,'sawtooth');return;}
+  // One voice at a time: clustered casualties should not stack loud samples.
+  if(activeScream)return;
+  const source=audio.createBufferSource(),gain=audio.createGain();
+  source.buffer=screamBuffer;gain.gain.value=.65;
+  source.connect(gain);gain.connect(audio.destination);activeScream=source;
+  source.onended=()=>{source.disconnect();gain.disconnect();if(activeScream===source)activeScream=undefined;};source.start();
+}
 function tone(frequency:number,duration:number,type:OscillatorType='square',volume=.035){
   if(!soundOn||!audio)return;
   const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=frequency;
@@ -18,7 +36,7 @@ function tone(frequency:number,duration:number,type:OscillatorType='square',volu
 }
 function gunSound(){if(!soundOn||!audio)return;tone(95,.055,'sawtooth',.06);tone(650,.024,'square',.018);}
 function speak(line:string){
-  if(!voiceOn||!('speechSynthesis' in window))return;
+  if(!voiceOn||activeScream||!('speechSynthesis' in window))return;
   speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(line);utterance.rate=1.15;utterance.pitch=.72;utterance.volume=.8;speechSynthesis.speak(utterance);
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
@@ -54,16 +72,16 @@ class RescueScene extends Phaser.Scene{
   start(){
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();firing=false;
-    this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
+    stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
-  callout(speaker:string,line:string,force=false){
+  callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
-    this.radio.setText(speaker+' / '+line);this.radioTime=3.2;this.radioCooldown=5;speak(line);
+    this.radio.setText(speaker+' / '+line);this.radioTime=3.2;this.radioCooldown=5;if(voiced)speak(line);
   }
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
     this.paused=paused;held.clear();firing=false;this.pointerHeld=false;
-    if(paused){if('speechSynthesis' in window)speechSynthesis.cancel();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
+    if(paused){stopScream();if('speechSynthesis' in window)speechSynthesis.cancel();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
@@ -75,7 +93,7 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='hit')this.burst(e.x,e.y,0xffbf65,7);
     if(e.kind==='rescue'){tone(620,.15,'triangle',.04);this.callout('PRISONER',['We made it! Keep them coming!','One more heading home!','Thank you! Get the others!'][this.mission.rescued%3]);}
     if(e.kind==='near')this.callout('PRISONER',"Easy! We're on your side!");
-    if(e.kind==='loss'){tone(130,.3,'sawtooth');this.callout('CONTROL','We lost one. Watch the orange uniforms.',true);}
+    if(e.kind==='loss'){if(soundOn&&'speechSynthesis' in window)speechSynthesis.cancel();casualtyScream();this.callout('CONTROL','We lost one. Watch the orange uniforms.',true,!soundOn);}
     if(e.kind==='enemy')this.callout('CONTROL','Sapper on the left. Protect your position.');
     if(e.kind==='reload'){tone(360,.07);}
   }
@@ -179,7 +197,7 @@ $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?
 $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
 function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
-$('sound').addEventListener('click',()=>{soundOn=!soundOn;unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn)stopScream();unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
 $('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn&&'speechSynthesis' in window)speechSynthesis.cancel();try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
