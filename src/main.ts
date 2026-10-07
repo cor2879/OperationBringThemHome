@@ -24,7 +24,7 @@ function casualtyScream(){
   // One voice at a time: clustered casualties should not stack loud samples.
   if(activeScream)return;
   const source=audio.createBufferSource(),gain=audio.createGain();
-  source.buffer=screamBuffer;gain.gain.value=.65;
+  source.buffer=screamBuffer;gain.gain.value=.3;
   source.connect(gain);gain.connect(audio.destination);activeScream=source;
   source.onended=()=>{source.disconnect();gain.disconnect();if(activeScream===source)activeScream=undefined;};source.start();
 }
@@ -93,7 +93,7 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='hit')this.burst(e.x,e.y,0xffbf65,7);
     if(e.kind==='rescue'){tone(620,.15,'triangle',.04);this.callout('PRISONER',['We made it! Keep them coming!','One more heading home!','Thank you! Get the others!'][this.mission.rescued%3]);}
     if(e.kind==='near')this.callout('PRISONER',"Easy! We're on your side!");
-    if(e.kind==='loss'){if(soundOn&&'speechSynthesis' in window)speechSynthesis.cancel();casualtyScream();this.callout('CONTROL','We lost one. Watch the orange uniforms.',true,!soundOn);}
+    if(e.kind==='loss'){if(soundOn&&Math.random()<1/6){if('speechSynthesis' in window)speechSynthesis.cancel();casualtyScream();}this.callout('CONTROL','We lost one. Watch the orange uniforms.',true,!soundOn);}
     if(e.kind==='enemy')this.callout('CONTROL','Sapper on the left. Protect your position.');
     if(e.kind==='reload'){tone(360,.07);}
   }
