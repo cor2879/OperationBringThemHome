@@ -1,7 +1,7 @@
 export type Point={x:number;y:number};
 export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number};
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
-export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat';x:number;y:number};
+export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat';x:number;y:number;shooter?:'player'|'enemy'};
 export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:270,y:280},{x:420,y:345},{x:660,y:405},{x:870,y:460}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
 export const GUN={x:480,y:550};
@@ -81,7 +81,7 @@ export class RescueMission{
         if(!u.alive||(b.side==='enemy'&&u.kind!=='prisoner'))continue;
         const d=segmentDistance(u,previous,b);
         if(b.side==='player'&&u.kind==='prisoner'&&d<38&&d>=12&&this.nearTimer<=0){this.nearTimer=7;this.events.push({kind:'near',x:u.x,y:u.y});}
-        if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y});}else this.kills++;}break;}
+        if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y,shooter:b.side});}else this.kills++;}break;}
       }
     }
     this.units=this.units.filter(u=>u.alive);this.bullets=this.bullets.filter(b=>b.life>0&&b.x>-10&&b.x<970&&b.y>-10&&b.y<610);

@@ -10,7 +10,8 @@ Cover twelve escaping prisoners with a defensive gun. Bring at least eight to th
 - Keyboard: A/D or Left/Right to aim, Space to fire, R to reload, P/Escape to pause.
 - Touch: drag on the field to aim, hold FIRE below the field, tap RELOAD.
 - Twenty-four rounds per clip; reload takes 1.65 seconds. Empty clips reload when you try firing.
-- SOUND and VOICE toggles persist locally. Radio voices are temporary browser speech. Each prisoner casualty has a one-in-six chance of playing the supplied retro scream at reduced volume when SOUND is enabled; pause, restart, or SOUND OFF stops it.
+- SOUND and VOICE toggles persist locally. Radio voices are temporary browser speech. Each enemy-caused prisoner casualty has a one-in-six chance of playing the supplied retro scream at reduced volume when SOUND is enabled; pause, restart, or SOUND OFF stops it.
+- Player-caused prisoner deaths trigger “Hey! Don’t shoot me!” instead of the scream. Radio lines wait for the scream to finish. Turning VOICE ON plays a radio check.
 - Losing browser focus pauses the mission. Resume explicitly to continue.
 
 ## Development

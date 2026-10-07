@@ -13,11 +13,21 @@ let audio:AudioContext|undefined;
 let screamBuffer:AudioBuffer|undefined;
 let screamLoading:Promise<void>|undefined;
 let activeScream:AudioBufferSourceNode|undefined;
+// Keep the current utterance alive and retain only the latest waiting radio line.
+let currentVoice:SpeechSynthesisUtterance|undefined;
+let waitingVoice:string|undefined;
+function stopVoice(){
+  waitingVoice=undefined;
+  if(currentVoice){currentVoice.onend=null;currentVoice.onerror=null;currentVoice=undefined;}
+  if('speechSynthesis' in window)speechSynthesis.cancel();
+}
+function flushVoice(){const line=waitingVoice;waitingVoice=undefined;if(line)speak(line);}
+if('speechSynthesis' in window)speechSynthesis.getVoices();
 function unlockAudio(){
   audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();
   screamLoading??=fetch(retroScreamUrl).then(r=>r.arrayBuffer()).then(bytes=>audio!.decodeAudioData(bytes)).then(buffer=>{screamBuffer=buffer;}).catch(()=>{});
 }
-function stopScream(){activeScream?.stop();activeScream=undefined;}
+function stopScream(){const source=activeScream;activeScream=undefined;if(source){source.onended=null;source.stop();source.disconnect();}}
 function casualtyScream(){
   if(!soundOn||!audio)return;
   if(!screamBuffer){tone(130,.3,'sawtooth');return;}
@@ -26,7 +36,7 @@ function casualtyScream(){
   const source=audio.createBufferSource(),gain=audio.createGain();
   source.buffer=screamBuffer;gain.gain.value=.3;
   source.connect(gain);gain.connect(audio.destination);activeScream=source;
-  source.onended=()=>{source.disconnect();gain.disconnect();if(activeScream===source)activeScream=undefined;};source.start();
+  source.onended=()=>{source.disconnect();gain.disconnect();if(activeScream===source){activeScream=undefined;flushVoice();}};source.start();
 }
 function tone(frequency:number,duration:number,type:OscillatorType='square',volume=.035){
   if(!soundOn||!audio)return;
@@ -36,8 +46,16 @@ function tone(frequency:number,duration:number,type:OscillatorType='square',volu
 }
 function gunSound(){if(!soundOn||!audio)return;tone(95,.055,'sawtooth',.06);tone(650,.024,'square',.018);}
 function speak(line:string){
-  if(!voiceOn||activeScream||!('speechSynthesis' in window))return;
-  speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(line);utterance.rate=1.15;utterance.pitch=.72;utterance.volume=.8;speechSynthesis.speak(utterance);
+  if(!voiceOn||!('speechSynthesis' in window))return;
+  speechSynthesis.resume();
+  if(activeScream||currentVoice){waitingVoice=line;return;}
+  const utterance=new SpeechSynthesisUtterance(line);
+  utterance.lang='en-US';utterance.rate=1.15;utterance.pitch=.72;utterance.volume=.8;
+  const voices=speechSynthesis.getVoices();
+  utterance.voice=voices.find(v=>v.localService&&v.lang==='en-US')||voices.find(v=>v.lang.startsWith('en'))||null;
+  currentVoice=utterance;
+  const complete=()=>{if(currentVoice===utterance){currentVoice=undefined;flushVoice();}};
+  utterance.onend=complete;utterance.onerror=complete;speechSynthesis.speak(utterance);
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
@@ -72,7 +90,7 @@ class RescueScene extends Phaser.Scene{
   start(){
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();firing=false;
-    stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
+    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
@@ -81,7 +99,7 @@ class RescueScene extends Phaser.Scene{
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
     this.paused=paused;held.clear();firing=false;this.pointerHeld=false;
-    if(paused){stopScream();if('speechSynthesis' in window)speechSynthesis.cancel();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
+    if(paused){stopVoice();stopScream();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
@@ -93,7 +111,12 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='hit')this.burst(e.x,e.y,0xffbf65,7);
     if(e.kind==='rescue'){tone(620,.15,'triangle',.04);this.callout('PRISONER',['We made it! Keep them coming!','One more heading home!','Thank you! Get the others!'][this.mission.rescued%3]);}
     if(e.kind==='near')this.callout('PRISONER',"Easy! We're on your side!");
-    if(e.kind==='loss'){if(soundOn&&Math.random()<1/6){if('speechSynthesis' in window)speechSynthesis.cancel();casualtyScream();}this.callout('CONTROL','We lost one. Watch the orange uniforms.',true,!soundOn);}
+    if(e.kind==='loss'){
+      const friendlyFire=e.shooter==='player';
+      // The spoken protest replaces the scream on friendly-fire casualties.
+      if(!friendlyFire&&soundOn&&Math.random()<1/6){stopVoice();casualtyScream();}
+      this.callout(friendlyFire?'PRISONER':'CONTROL',friendlyFire?"Hey! Don't shoot me!":'We lost one. Watch the orange uniforms.',true);
+    }
     if(e.kind==='enemy')this.callout('CONTROL','Sapper on the left. Protect your position.');
     if(e.kind==='reload'){tone(360,.07);}
   }
@@ -197,8 +220,8 @@ $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?
 $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
 function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
-$('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn)stopScream();unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
-$('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn&&'speechSynthesis' in window)speechSynthesis.cancel();try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn){stopScream();flushVoice();}unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
+$('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn)stopVoice();else speak('Radio check. Voice channel online.');try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
 updateToggles();

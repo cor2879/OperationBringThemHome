@@ -11,6 +11,7 @@ test('friendly fire costs a prisoner; five losses fail the operation',()=>{
   m.units=[{id:0,kind:'prisoner',x:480,y:480,hp:1,speed:0,waypoint:1,fireTimer:0,alive:true,step:0}];
   m.bullets=[{x:480,y:485,vx:0,vy:-200,side:'player',life:1}];m.update(.02);
   assert.equal(m.lost,5);assert.equal(m.state,'lost');
+  assert.equal(m.drainEvents().find(e=>e.kind==='loss')?.shooter,'player');
 });
 test('reload blocks firing and restores the clip after its timer',()=>{
   const m=new RescueMission(()=>.5);m.ammo=2;m.reload();m.fire();assert.equal(m.ammo,2);assert.equal(m.bullets.length,0);
@@ -32,4 +33,11 @@ test('fast bullets hit targets between frames instead of passing through',()=>{
 test('cover blocks bullets crossing an entire wall in one frame',()=>{
   const m=new RescueMission(()=>.5);
   m.bullets=[{x:260,y:220,vx:0,vy:-780,side:'player',life:1}];m.update(.05);assert.equal(m.bullets.length,0);
+});
+
+test('enemy-caused prisoner losses retain the shooter for casualty dialogue',()=>{
+  const m=new RescueMission(()=>.5);
+  m.units=[{id:0,kind:'prisoner',x:480,y:480,hp:1,speed:0,waypoint:1,fireTimer:0,alive:true,step:0}];
+  m.bullets=[{x:480,y:485,vx:0,vy:-200,side:'enemy',life:1}];m.update(.02);
+  assert.equal(m.lost,1);assert.equal(m.drainEvents().find(e=>e.kind==='loss')?.shooter,'enemy');
 });
