@@ -1,11 +1,12 @@
 export type Point={x:number;y:number};
-export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point};
+export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegun';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point;phase?:'advance'|'setup'|'burst'|'reload';phaseTimer?:number};
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
-export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat';x:number;y:number;shooter?:'player'|'enemy'};
+export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload';x:number;y:number;shooter?:'player'|'enemy'};
 export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:300,y:238},{x:420,y:345},{x:600,y:336},{x:870,y:460}];
 export const SHELTERS=[{waypoint:2,capacity:3,...ROUTE[2]},{waypoint:4,capacity:3,...ROUTE[4]}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
 export const GUN={x:480,y:550};
+export const MACHINEGUN_POSITION={x:175,y:300};
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
 function segmentDistance(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y;
@@ -25,7 +26,7 @@ function hitsWall(a:Point,b:Point,w:{x:number;y:number;w:number;h:number}){
 export class RescueMission{
   units:Unit[]=[];bullets:Bullet[]=[];events:MissionEvent[]=[];
   time=0;rescued=0;lost=0;released=0;kills=0;health=100;ammo=24;reloadTime=0;fireCooldown=0;angle=-Math.PI/2;state:'playing'|'won'|'lost'='playing';
-  private releaseTimer=1;private spawnTimer=3;private nextId=0;private nearTimer=0;
+  private releaseTimer=1;private spawnTimer=3;private nextId=0;private nearTimer=0;private machinegunTimer=12;
   private random:()=>number;
   coverOrdered=false;private commandDelay=0;
   commandCover(hold:boolean){
@@ -52,6 +53,11 @@ export class RescueMission{
     this.releaseTimer-=dt;
     if(this.releaseTimer<=0&&this.released<12){this.units.push({id:this.nextId++,kind:'prisoner',...ROUTE[0],hp:1,speed:43,waypoint:1,fireTimer:0,alive:true,step:0});this.released++;this.releaseTimer=5.2;}
     this.spawnTimer-=dt;
+    this.machinegunTimer-=dt;
+    if(this.machinegunTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='machinegun')){
+      this.units.push({id:this.nextId++,kind:'machinegun',x:35,y:220,hp:3,speed:35,waypoint:0,fireTimer:0,alive:true,step:0,phase:'advance',phaseTimer:0});
+      this.machinegunTimer=24;this.events.push({kind:'machinegun',x:35,y:220});
+    }
     if(this.spawnTimer<=0){
       const d=this.difficulty==='rookie'?.8:this.difficulty==='veteran'?1.25:1;
       const sapper=this.random()<.28;
@@ -62,7 +68,30 @@ export class RescueMission{
     for(const u of this.units){
       if(!u.alive)continue;u.step+=dt*u.speed/10;
       let target:Point;
-      if(u.kind==='prisoner'){
+      if(u.kind==='machinegun'){
+        if(u.phase==='advance'){
+          const d=distance(u,MACHINEGUN_POSITION),travel=Math.min(d,u.speed*dt);
+          u.x+=(MACHINEGUN_POSITION.x-u.x)/Math.max(d,1)*travel;u.y+=(MACHINEGUN_POSITION.y-u.y)/Math.max(d,1)*travel;
+          if(d<=travel){u.phase='setup';u.phaseTimer=1.5;u.aimPoint={x:340,y:274};}
+        }else{
+          u.phaseTimer=(u.phaseTimer??0)-dt;
+          if(u.phase==='setup'&&u.phaseTimer<=0){u.phase='burst';u.phaseTimer=2.4;u.fireTimer=0;}
+          if(u.phase==='burst'){
+            // Sweep the exposed crossing, rather than tracking prisoners inside shelters.
+            const sweep=Math.max(0,Math.min(1,1-(u.phaseTimer??0)/2.4));
+            u.aimPoint={x:340+sweep*115,y:274+sweep*69};u.fireTimer-=dt;
+            if((u.phaseTimer??0)<=0){
+              u.phase='reload';u.phaseTimer=this.difficulty==='rookie'?6.5:this.difficulty==='veteran'?4.5:5.5;u.aimPoint=undefined;
+              this.events.push({kind:'enemyreload',x:u.x,y:u.y});
+            }else if(u.fireTimer<=0){
+              const a=Math.atan2(u.aimPoint.y-u.y,u.aimPoint.x-u.x);
+              this.bullets.push({x:u.x+Math.cos(a)*18,y:u.y+Math.sin(a)*18,vx:Math.cos(a)*260,vy:Math.sin(a)*260,side:'enemy',life:2.5});
+              u.fireTimer=.24;this.events.push({kind:'enemyburst',x:u.x,y:u.y});
+            }
+          }else if(u.phase==='reload'&&u.phaseTimer<=0){u.phase='setup';u.phaseTimer=1.5;u.aimPoint={x:340,y:274};}
+        }
+        continue;
+      }else if(u.kind==='prisoner'){
         if(u.shelter!==undefined)continue;
         target=ROUTE[u.waypoint];
         if(distance(u,target)<7){

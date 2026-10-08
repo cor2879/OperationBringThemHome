@@ -1,7 +1,33 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { RescueMission, GUN, ROUTE } from '../src/model.ts';
+import { RescueMission, GUN, ROUTE, MACHINEGUN_POSITION } from '../src/model.ts';
 const prisoner=(id:number)=>({id,kind:'prisoner' as const,...ROUTE[2],hp:1,speed:43,waypoint:2,fireTimer:0,alive:true,step:0});
+const machinegun=()=>({id:99,kind:'machinegun' as const,...MACHINEGUN_POSITION,hp:3,speed:35,waypoint:0,fireTimer:0,alive:true,step:0,phase:'setup' as const,phaseTimer:1.5});
+const advance=(m:RescueMission,seconds:number)=>{for(let i=0;i<Math.round(seconds/.05);i++)m.update(.05);};
+test('machine gun telegraphs setup, sweeps a burst, then leaves a reload window',()=>{
+  const m=new RescueMission(()=>.5);m.released=12;m.units=[machinegun()];
+  advance(m,1);assert.equal(m.bullets.length,0);assert.equal(m.units[0].phase,'setup');
+  advance(m,.6);assert.equal(m.units[0].phase,'burst');assert.ok(m.bullets.some(b=>b.side==='enemy'));
+  const aim={...m.units[0].aimPoint!};advance(m,.5);assert.ok(m.units[0].aimPoint!.x>aim.x);
+  advance(m,2);assert.equal(m.units[0].phase,'reload');assert.equal(m.units[0].aimPoint,undefined);
+  m.bullets=[];m.drainEvents();advance(m,3);
+  assert.equal(m.units[0].phase,'reload');assert.equal(m.bullets.filter(b=>b.side==='enemy').length,0);
+  assert.equal(m.drainEvents().filter(e=>e.kind==='enemyburst').length,0);
+  advance(m,2.5);assert.equal(m.units[0].phase,'setup');
+});
+test('machine gun deployments are delayed and never overlap',()=>{
+  const m=new RescueMission(()=>.5);m.released=12;
+  advance(m,11);assert.equal(m.units.filter(u=>u.kind==='machinegun').length,0);
+  advance(m,2);assert.equal(m.units.filter(u=>u.kind==='machinegun').length,1);
+  advance(m,30);assert.equal(m.units.filter(u=>u.kind==='machinegun').length,1);
+});
+test('destroying a machine gun interrupts its burst',()=>{
+  const m=new RescueMission(()=>.5);m.released=12;
+  m.units=[{...machinegun(),hp:1,phase:'burst',phaseTimer:1,fireTimer:.2}];
+  m.bullets=[{x:175,y:320,vx:0,vy:-400,side:'player',life:1}];m.update(.05);
+  assert.equal(m.kills,1);assert.equal(m.units.length,0);advance(m,1);
+  assert.equal(m.drainEvents().filter(e=>e.kind==='enemyburst').length,0);
+});
 test('cover has a reaction delay and shelters only three escapees',()=>{
   const m=new RescueMission(()=>.5);m.released=12;m.commandCover(true);
   m.units=[prisoner(0)];m.update(.05);assert.equal(m.units[0].shelter,undefined);

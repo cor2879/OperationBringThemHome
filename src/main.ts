@@ -61,7 +61,7 @@ if(mobileLayout()){
 }
 class RescueScene extends Phaser.Scene{
   mission=new RescueMission();started=false;paused=false;
-  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;
+  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
@@ -69,6 +69,7 @@ class RescueScene extends Phaser.Scene{
     const field=this.add.graphics();this.drawField(field);
     this.ink=this.add.graphics();
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
+    this.machinegunStatus=this.add.text(23,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffbd70'}).setDepth(10).setVisible(false);
     this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
     this.input.on('pointerdown',(p:PhaserType.Input.Pointer)=>{
       if(!this.started||this.paused||this.mission.state!=='playing'||mobileLayout())return;
@@ -117,6 +118,9 @@ class RescueScene extends Phaser.Scene{
       this.callout(friendlyFire?'PRISONER':'CONTROL',friendlyFire?"Hey! Don't shoot me!":'We lost one. Watch the orange uniforms.',true);
     }
     if(e.kind==='enemy')this.callout('CONTROL','Sapper on the left. Protect your position.');
+    if(e.kind==='machinegun')this.callout('CONTROL','Machine gun on the left. Get them to cover!',true);
+    if(e.kind==='enemyreload')this.callout('CONTROL','Machine gun reloading. Move them now!',false);
+    if(e.kind==='enemyburst'){tone(100,.05,'sawtooth',.025);this.burst(e.x+18,e.y,0xffd089,3);}
     if(e.kind==='reload'){tone(360,.07);}
   }
   update(_time:number,delta:number){
@@ -174,6 +178,16 @@ class RescueScene extends Phaser.Scene{
   }
   drawUnit(g:PhaserType.GameObjects.Graphics,u:Unit){
     const x=Math.round(u.x),y=Math.round(u.y),step=Math.sin(u.step)>0?2:-2;
+    if(u.kind==='machinegun'){
+      const color=u.phase==='reload'?0xa9d989:u.phase==='burst'?0xff694c:0xffbd70;
+      g.lineStyle(2,color);g.strokeCircle(x,y,21);
+      if(u.phase!=='advance'){
+        g.fillStyle(0x101b16,.9);g.fillRect(x-31,y-35,62,9);
+        const duration=u.phase==='reload'?(this.mission.difficulty==='rookie'?6.5:this.mission.difficulty==='veteran'?4.5:5.5):u.phase==='burst'?2.4:1.5;
+        g.fillStyle(color);g.fillRect(x-30,y-34,60*Math.max(0,(u.phaseTimer??0)/duration),7);
+        g.lineStyle(3,0x172119);g.lineBetween(x+5,y+2,x+19,y+12);g.lineBetween(x+5,y+2,x-3,y+13);g.lineBetween(x,y,x+25,y);
+      }
+    }
     if(u.aimPoint){g.lineStyle(1,0xff7654,.55);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);g.lineStyle(2,0xffbd70);g.strokeCircle(x,y,19+Math.sin(this.tick*16)*3);}
     if(u.shelter!==undefined){g.fillStyle(0xe9a153);g.fillRect(x-6,y-3,12,8);g.fillStyle(0xd3b993);g.fillRect(x-3,y-8,6,5);return;}
     g.fillStyle(0x0a130e,.45);g.fillEllipse(x+2,y+10,18,7);
@@ -187,6 +201,13 @@ class RescueScene extends Phaser.Scene{
     const m=this.mission,g=this.ink;g.clear();
     SHELTERS.forEach((s,i)=>{const count=m.units.filter(u=>u.shelter===i).length;g.fillStyle(0x16271e,.9);g.fillRoundedRect(s.x-32,s.y-17,64,34,6);g.lineStyle(2,m.coverOrdered?0xe5aa63:0x8fa67a);g.strokeRoundedRect(s.x-32,s.y-17,64,34,6);for(let slot=0;slot<s.capacity;slot++){g.fillStyle(slot<count?0xe9a153:0x52614a);g.fillRect(s.x-21+slot*17,s.y+19,12,5);}});
     m.units.forEach(u=>this.drawUnit(g,u));
+    const machinegun=m.units.find(u=>u.kind==='machinegun');
+    if(machinegun){const phase=machinegun.phase;
+      // Persistent instruction stays visible even when another radio line takes priority.
+      g.fillStyle(0x101b16,.9);g.fillRect(15,565,345,25);
+      const label=phase==='reload'?'MG RELOADING · GO!':phase==='advance'?'MACHINE GUN INBOUND · LEFT':phase==='setup'?'MG SETTING UP · TAKE COVER':'MG FIRING · STAY IN COVER';
+      this.machinegunStatus.setText(label).setVisible(true).setColor(phase==='reload'?'#a9d989':'#ffbd70');
+    }else this.machinegunStatus.setVisible(false);
     m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.012,b.y-b.vy*.012);});
     g.fillStyle(0x879071);g.fillCircle(GUN.x,GUN.y,18);g.lineStyle(11,0x222c23);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*38,GUN.y+Math.sin(m.angle)*38);g.lineStyle(5,0xc1b98e);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*40,GUN.y+Math.sin(m.angle)*40);
     g.fillStyle(0xbeab83);g.fillRect(470,546,20,15);g.fillStyle(0x283c27);g.fillRect(474,541,12,8);

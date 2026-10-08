@@ -15,6 +15,8 @@ LINES = {
     "Hey! Don't shoot me!": 'kal',
     'We lost one. Watch the orange uniforms.': 'rms',
     'Sapper on the left. Protect your position.': 'rms',
+    'Machine gun on the left. Get them to cover!': 'rms',
+    'Machine gun reloading. Move them now!': 'rms',
     'Take cover! Stop at the next shelter!': 'rms',
     'Moving! Cover us!': 'kal',
     'Extraction confirmed. You brought them home.': 'rms',

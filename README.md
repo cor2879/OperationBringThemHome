@@ -23,6 +23,7 @@ Mobile: use the left-thumb aiming slider, hold FIRE with the right thumb, and ta
 - Commands have a short reaction delay. Shelters A and B each hold three people; overflow continues along the route.
 - Sheltered escapees are protected from enemy fire, but player bullets remain dangerous. Raiders target exposed escapees or your gun.
 - Raiders telegraph a locked aiming line before firing. The extraction clock continues while the squad is in cover.
+- One machine-gun squad at a time approaches from the upper left, deploys at the left flank, and sweeps the exposed crossing between shelters. Its amber setup lasts 1.5 seconds, red burst lasts 2.4 seconds, and green reload lasts 6.5 / 5.5 / 4.5 seconds on Rookie / Regular / Veteran. Use COVER before the burst and GO during reload; bullets already fired still take time to cross the field. It takes three hits to destroy the squad and interrupt its cycle. Persistent status, aiming lines, phase bars, and bundled radio calls announce the threat.
 
 
 Node 22.18+ or 24 recommended. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`.
