@@ -250,3 +250,4 @@ $('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn)stopVoice(
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
 updateToggles();
+matchMedia('(pointer:coarse), (max-width:650px)').addEventListener('change',()=>{document.body.classList.toggle('touch-layout',mobileLayout());touch.reset();updateTouchCover();if(scene?.started)scene.setPause(true);});
