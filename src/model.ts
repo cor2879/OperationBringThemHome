@@ -1,7 +1,7 @@
 export type Point={x:number;y:number};
-export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegun';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point;phase?:'advance'|'setup'|'burst'|'reload';phaseTimer?:number};
+export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegun'|'dog';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point;phase?:'advance'|'setup'|'burst'|'reload';phaseTimer?:number;preyId?:number;facing?:number};
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
-export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload';x:number;y:number;shooter?:'player'|'enemy'};
+export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload'|'dogwarning';x:number;y:number;shooter?:'player'|'enemy'};
 export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:300,y:238},{x:420,y:345},{x:600,y:336},{x:870,y:460}];
 export const SHELTERS=[{waypoint:2,capacity:1,...ROUTE[2]},{waypoint:4,capacity:1,...ROUTE[4]}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
@@ -29,6 +29,8 @@ export class RescueMission{
   time=0;rescued=0;lost=0;released=0;kills=0;health=100;ammo=24;reloadTime=0;fireCooldown=0;angle=-Math.PI/2;state:'playing'|'won'|'lost'='playing';
   private releaseTimer=1;private spawnTimer=3;private nextId=0;private nearTimer=0;private machinegunTimer=12;
   private random:()=>number;
+  private dogTimer=0;private dogWarning?:{preyId:number;remaining:number};
+  get dogInbound(){return this.dogWarning!==undefined;}
   coverOrdered=false;private commandDelay=0;
   commandCover(hold:boolean){
     if(this.state!=='playing'||hold===this.coverOrdered)return false;
@@ -56,6 +58,19 @@ export class RescueMission{
       this.releaseTimer-=dt;
       if(this.releaseTimer<=0&&this.released<12){this.units.push({id:this.nextId++,kind:'prisoner',...ROUTE[0],hp:1,speed:43,waypoint:1,fireTimer:0,alive:true,step:0});this.released++;this.releaseTimer=1.8;}
     }
+    this.dogTimer-=dt;
+    const escapee=this.units.find(u=>u.alive&&u.kind==='prisoner');
+    if(this.dogWarning){
+      this.dogWarning.remaining-=dt;
+      if(!escapee||escapee.id!==this.dogWarning.preyId)this.dogWarning=undefined;
+      else if(this.dogWarning.remaining<=0){
+        this.units.push({id:this.nextId++,kind:'dog',...ROUTE[0],hp:1,speed:this.difficulty==='rookie'?64:this.difficulty==='veteran'?80:72,waypoint:1,fireTimer:0,alive:true,step:0,preyId:escapee.id,facing:1});
+        this.dogWarning=undefined;
+      }
+    }else if(this.released>=3&&escapee&&escapee.waypoint>=2&&this.dogTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='dog')){
+      this.dogWarning={preyId:escapee.id,remaining:2};this.dogTimer=35;
+      this.events.push({kind:'dogwarning',...ROUTE[0]});
+    }
     this.spawnTimer-=dt;
     this.machinegunTimer-=dt;
     if(this.machinegunTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='machinegun')){
@@ -74,7 +89,19 @@ export class RescueMission{
     for(const u of this.units){
       if(!u.alive)continue;u.step+=dt*u.speed/10;
       let target:Point;
-      if(u.kind==='machinegun'){
+      if(u.kind==='dog'){
+        const prey=this.units.find(p=>p.alive&&p.kind==='prisoner'&&p.id===u.preyId);
+        // A pursuit belongs to one crossing; never ambush the next person from downfield.
+        if(!prey){u.alive=false;continue;}
+        if(prey.shelter!==undefined&&distance(u,prey)<=34)continue;
+        if(prey.shelter===undefined&&distance(u,prey)<15){prey.alive=false;u.alive=false;this.lost++;this.events.push({kind:'loss',x:prey.x,y:prey.y,shooter:'enemy'});continue;}
+        if(u.waypoint<prey.waypoint&&distance(u,ROUTE[u.waypoint])<6)u.waypoint++;
+        target=u.waypoint<prey.waypoint?ROUTE[u.waypoint]:prey;
+        const d=distance(u,target),travel=Math.min(d,u.speed*dt,prey.shelter!==undefined&&u.waypoint>=prey.waypoint?Math.max(0,d-33):Infinity);
+        u.facing=target.x>=u.x?1:-1;
+        u.x+=(target.x-u.x)/Math.max(d,1)*travel;u.y+=(target.y-u.y)/Math.max(d,1)*travel;
+        continue;
+      }else if(u.kind==='machinegun'){
         if(u.phase==='advance'){
           const d=distance(u,MACHINEGUN_POSITION),travel=Math.min(d,u.speed*dt);
           u.x+=(MACHINEGUN_POSITION.x-u.x)/Math.max(d,1)*travel;u.y+=(MACHINEGUN_POSITION.y-u.y)/Math.max(d,1)*travel;

@@ -17,6 +17,7 @@ LINES = {
     'Sapper on the left. Protect your position.': 'rms',
     'Machine gun on the left. Get them to cover!': 'rms',
     'Machine gun reloading. Move them now!': 'rms',
+    'Dog loose! Get to cover!': 'rms',
     'Take cover! Stop at the next shelter!': 'rms',
     'Moving! Cover us!': 'kal',
     'Extraction confirmed. You brought them home.': 'rms',

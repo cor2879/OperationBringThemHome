@@ -33,7 +33,7 @@ test('timing shelter commands around machine gun reloads improves the rescue out
     const m=new RescueMission(()=>.5);
     for(let i=0;i<7200&&m.state==='playing';i++){
       // Isolate this threat so raiders and sappers do not obscure the command timing.
-      m.units=m.units.filter(u=>u.kind!=='raider'&&u.kind!=='sapper');
+      m.units=m.units.filter(u=>u.kind==='prisoner'||u.kind==='machinegun');
       const gun=m.units.find(u=>u.kind==='machinegun');
       if(orders&&gun)m.commandCover(gun.phase!=='reload');
       m.update(.05);

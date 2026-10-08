@@ -5,6 +5,7 @@ import retroScreamUrl from './audio/retro-scream.ts';
 import { TouchControls, touchAngle } from './controls.ts';
 import radioClips from './audio/radio-clips.ts';
 import { RadioVoice } from './audio/radio.ts';
+import { playDogBark } from './audio/dog.ts';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -53,10 +54,10 @@ function speak(line:string){
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
-overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>ONE CROSSING AT A TIME.</h2><p>Twelve prisoners. Bring eight home in six minutes.<br>Only one escapee leaves at a time. Protect every crossing.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER at the next shelter. Release to GO!<br>Green machine-gun reload bars signal an opening.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: aiming slider + hold FIRE</small>';
+overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>ONE CROSSING AT A TIME.</h2><p>Twelve prisoners. Bring eight home in six minutes.<br>Only one escapee leaves at a time. Protect every crossing.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER at the next shelter. Release to GO!<br>Green bars: reload opening. A bark warns of a dog!</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: aiming slider + hold FIRE</small>';
 let scene:RescueScene;
 if(mobileLayout()){
-  overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green machine-gun reload bars signal an opening.';
+  overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
   overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
@@ -122,6 +123,7 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='machinegun')this.callout('CONTROL','Machine gun on the left. Get them to cover!',true);
     if(e.kind==='enemyreload')this.callout('CONTROL','Machine gun reloading. Move them now!',false);
     if(e.kind==='enemyburst'){tone(100,.05,'sawtooth',.025);this.burst(e.x+18,e.y,0xffd089,3);}
+    if(e.kind==='dogwarning'){if(soundOn&&audio)playDogBark(audio);this.callout('CONTROL','Dog loose! Get to cover!',true);}
     if(e.kind==='reload'){tone(360,.07);}
   }
   update(_time:number,delta:number){
@@ -179,6 +181,16 @@ class RescueScene extends Phaser.Scene{
   }
   drawUnit(g:PhaserType.GameObjects.Graphics,u:Unit){
     const x=Math.round(u.x),y=Math.round(u.y),step=Math.sin(u.step)>0?2:-2;
+    if(u.kind==='dog'){
+      const f=u.facing??1;
+      g.fillStyle(0x0a130e,.5);g.fillEllipse(x,y+8,26,7);
+      g.fillStyle(0xb38a50);g.fillRect(x-10,y-5,18,9);g.fillRect(x+(f>0?6:-12),y-10,7,9);
+      g.fillStyle(0x332b20);g.fillRect(x+(f>0?7:-10),y-13,3,5);g.fillRect(x+(f>0?12:-16),y-5,5,3);
+      g.fillStyle(0xc76648);g.fillRect(x+(f>0?5:-8),y-6,3,7);
+      g.fillStyle(0x715637);g.fillRect(x-8,y+3,3,5+step);g.fillRect(x+4,y+3,3,5-step);
+      g.lineStyle(3,0xb38a50);g.lineBetween(x-f*9,y-3,x-f*16,y-8);
+      g.lineStyle(1,0xffbd70,.75);g.strokeCircle(x,y,18);return;
+    }
     if(u.kind==='machinegun'){
       const color=u.phase==='reload'?0xa9d989:u.phase==='burst'?0xff694c:0xffbd70;
       g.lineStyle(2,color);g.strokeCircle(x,y,21);
@@ -204,7 +216,9 @@ class RescueScene extends Phaser.Scene{
     m.units.forEach(u=>this.drawUnit(g,u));
     const escapee=m.units.find(u=>u.kind==='prisoner');
     g.fillStyle(0x101b16,.9);g.fillRect(601,565,345,25);
-    this.escapeeStatus.setText(escapee?`ESCAPEE ${String(m.released).padStart(2,'0')}/12 · ${escapee.shelter===undefined?'MOVING':'COVER '+(escapee.shelter===0?'A':'B')}`:m.released<12?'NEXT ESCAPEE · STAND BY':'ALL CROSSINGS COMPLETE');
+    const dog=m.units.find(u=>u.kind==='dog');
+    const pursuit=m.dogInbound?' · DOG INBOUND':dog?(escapee?.shelter===undefined?' · DOG CHASING':' · DOG AT SHELTER'):'';
+    this.escapeeStatus.setText(escapee?`ESCAPEE ${String(m.released).padStart(2,'0')}/12${pursuit||' · '+(escapee.shelter===undefined?'MOVING':'COVER '+(escapee.shelter===0?'A':'B'))}`:m.released<12?'NEXT ESCAPEE · STAND BY':'ALL CROSSINGS COMPLETE');
     const machinegun=m.units.find(u=>u.kind==='machinegun');
     if(machinegun){const phase=machinegun.phase;
       // Persistent instruction stays visible even when another radio line takes priority.
