@@ -67,7 +67,9 @@ export class RescueMission{
         this.units.push({id:this.nextId++,kind:'dog',...ROUTE[0],hp:1,speed:this.difficulty==='rookie'?64:this.difficulty==='veteran'?80:72,waypoint:1,fireTimer:0,alive:true,step:0,preyId:escapee.id,facing:1});
         this.dogWarning=undefined;
       }
-    }else if(this.released>=3&&escapee&&escapee.waypoint>=2&&this.dogTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='dog')){
+    // Do not announce a new pursuit on the final leg from Shelter B to extraction.
+    // Warnings already issued still finish, with enough route left for the dog to enter.
+    }else if(this.released>=3&&escapee&&escapee.waypoint>=2&&escapee.waypoint<ROUTE.length-1&&this.dogTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='dog')){
       this.dogWarning={preyId:escapee.id,remaining:2};this.dogTimer=35;
       this.events.push({kind:'dogwarning',...ROUTE[0]});
     }

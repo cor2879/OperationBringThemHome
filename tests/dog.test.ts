@@ -4,6 +4,22 @@ import {RescueMission,ROUTE,type Unit} from '../src/model.ts';
 const prey=():Unit=>({id:99,kind:'prisoner',...ROUTE[2],hp:1,speed:0,waypoint:2,fireTimer:0,alive:true,step:0});
 const dog=():Unit=>({id:100,kind:'dog',x:260,y:238,hp:1,speed:72,waypoint:2,fireTimer:0,alive:true,step:0,preyId:99});
 const advance=(m:RescueMission,t:number)=>{for(let i=0;i<Math.round(t/.05);i++)m.update(.05);};
+test('the final approach and van arrival never announce a new dog',()=>{
+  for(const position of [ROUTE[4],{x:866,y:458}]){
+    const m=new RescueMission(()=>.5);m.released=3;
+    m.units=[{...prey(),...position,waypoint:5,speed:43}];m.update(.05);
+    assert.equal(m.dogInbound,false);assert.equal(m.drainEvents().some(e=>e.kind==='dogwarning'),false);
+    advance(m,2.05);assert.equal(m.units.some(u=>u.kind==='dog'),false);
+    // A suppressed warning must not spend the cooldown for the next crossing.
+    m.units=[{...prey(),id:101}];m.released=4;m.update(.05);assert.equal(m.dogInbound,true);
+  }
+});
+test('a warning before Shelter B still produces a dog when the escapee starts the final leg',()=>{
+  const m=new RescueMission(()=>.5);m.released=3;
+  m.units=[{...prey(),...ROUTE[4],waypoint:4,speed:43}];m.update(.05);
+  assert.equal(m.dogInbound,true);assert.equal(m.units[0].waypoint,5);
+  advance(m,2.05);assert.equal(m.units.filter(u=>u.kind==='dog').length,1);
+});
 test('dogs start after the first two crossings and give a two-second warning',()=>{
   const m=new RescueMission(()=>.5);m.released=2;m.units=[prey()];m.update(.05);
   assert.equal(m.dogInbound,false);m.released=3;m.update(.05);
