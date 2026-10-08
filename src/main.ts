@@ -3,6 +3,8 @@ import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, type MissionEvent, type Uni
 import './style.css';
 import retroScreamUrl from './audio/retro-scream.ts';
 import { TouchControls, touchAngle } from './controls.ts';
+import radioClips from './audio/radio-clips.ts';
+import { RadioVoice } from './audio/radio.ts';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -19,21 +21,15 @@ let audio:AudioContext|undefined;
 let screamBuffer:AudioBuffer|undefined;
 let screamLoading:Promise<void>|undefined;
 let activeScream:AudioBufferSourceNode|undefined;
-// Keep the current utterance alive and retain only the latest waiting radio line.
-let currentVoice:SpeechSynthesisUtterance|undefined;
-let waitingVoice:string|undefined;
-function stopVoice(){
-  waitingVoice=undefined;
-  if(currentVoice){currentVoice.onend=null;currentVoice.onerror=null;currentVoice=undefined;}
-  if('speechSynthesis' in window)speechSynthesis.cancel();
-}
-function flushVoice(){const line=waitingVoice;waitingVoice=undefined;if(line)speak(line);}
-if('speechSynthesis' in window)speechSynthesis.getVoices();
+const radioVoice=new RadioVoice(radioClips);radioVoice.setEnabled(voiceOn);
+function stopVoice(){radioVoice.stop();}
+function flushVoice(){radioVoice.setBlocked(false);}
 function unlockAudio(){
   audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();
+  void radioVoice.prepare(audio);
   screamLoading??=fetch(retroScreamUrl).then(r=>r.arrayBuffer()).then(bytes=>audio!.decodeAudioData(bytes)).then(buffer=>{screamBuffer=buffer;}).catch(()=>{});
 }
-function stopScream(){const source=activeScream;activeScream=undefined;if(source){source.onended=null;source.stop();source.disconnect();}}
+function stopScream(){const source=activeScream;activeScream=undefined;if(source){source.onended=null;source.stop();source.disconnect();}radioVoice.setBlocked(false);}
 function casualtyScream(){
   if(!soundOn||!audio)return;
   if(!screamBuffer){tone(130,.3,'sawtooth');return;}
@@ -41,6 +37,7 @@ function casualtyScream(){
   if(activeScream)return;
   const source=audio.createBufferSource(),gain=audio.createGain();
   source.buffer=screamBuffer;gain.gain.value=.3;
+  radioVoice.setBlocked(true);
   source.connect(gain);gain.connect(audio.destination);activeScream=source;
   source.onended=()=>{source.disconnect();gain.disconnect();if(activeScream===source){activeScream=undefined;flushVoice();}};source.start();
 }
@@ -52,16 +49,7 @@ function tone(frequency:number,duration:number,type:OscillatorType='square',volu
 }
 function gunSound(){if(!soundOn||!audio)return;tone(95,.055,'sawtooth',.06);tone(650,.024,'square',.018);}
 function speak(line:string){
-  if(!voiceOn||!('speechSynthesis' in window))return;
-  speechSynthesis.resume();
-  if(activeScream||currentVoice){waitingVoice=line;return;}
-  const utterance=new SpeechSynthesisUtterance(line);
-  utterance.lang='en-US';utterance.rate=1.15;utterance.pitch=.72;utterance.volume=.8;
-  const voices=speechSynthesis.getVoices();
-  utterance.voice=voices.find(v=>v.localService&&v.lang==='en-US')||voices.find(v=>v.lang.startsWith('en'))||null;
-  currentVoice=utterance;
-  const complete=()=>{if(currentVoice===utterance){currentVoice=undefined;flushVoice();}};
-  utterance.onend=complete;utterance.onerror=complete;speechSynthesis.speak(utterance);
+  radioVoice.say(line);
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
@@ -246,7 +234,7 @@ $('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.star
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
 function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn){stopScream();flushVoice();}unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
-$('voice').addEventListener('click',()=>{voiceOn=!voiceOn;if(!voiceOn)stopVoice();else speak('Radio check. Voice channel online.');try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
+$('voice').addEventListener('click',()=>{voiceOn=!voiceOn;radioVoice.setEnabled(voiceOn);unlockAudio();if(voiceOn)speak('Radio check. Voice channel online.');try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
 updateToggles();
