@@ -4,7 +4,7 @@ An original browser action game by Old Skool Games and Software. Concept by Davi
 
 ## First playable: Rescue
 
-Cover twelve escaping prisoners with a defensive gun. Bring at least eight to the truck before the two-minute extraction window closes. Orange uniforms are friendly; red helmets are hostile. Raiders target prisoners and sappers assault the gun. Difficulty changes enemy speed, deployment frequency, and aim. Friendly fire is enabled.
+Cover twelve escaping prisoners with a defensive gun. Bring at least eight to the truck before the six-minute extraction window closes. Only one escapee is active at a time; after rescue or loss, the next leaves following a 1.8-second deployment gap. Orange uniforms are friendly; red helmets are hostile. Raiders focus on the exposed escapee and sappers assault the gun. Difficulty changes enemy speed, deployment frequency, and aim. Friendly fire is enabled.
 
 - Mouse: aim, hold left click to fire.
 - Keyboard: A/D or Left/Right to aim, Space to fire, R to reload, P/Escape to pause.
@@ -20,10 +20,11 @@ Cover twelve escaping prisoners with a defensive gun. Bring at least eight to th
 Mobile: use the left-thumb aiming slider, hold FIRE with the right thumb, and tap TAKE COVER / GO! to toggle the order. Releasing FIRE does not release the cover order. RELOAD remains separate; firing an empty clip still starts a reload. Pause/restart clear touch inputs. Desktop mouse and keyboard controls are unchanged.
 
 - Hold **C** or **HOLD: TAKE COVER** to stop escapees at the next shelter; release to send them onward.
-- Commands have a short reaction delay. Shelters A and B each hold three people; overflow continues along the route.
+- Commands have a short reaction delay. Shelters A and B each hold the active escapee. Keeping someone in cover does not deploy the next prisoner; release GO to continue their crossing.
 - Sheltered escapees are protected from enemy fire, but player bullets remain dangerous. Raiders target exposed escapees or your gun.
 - Raiders telegraph a locked aiming line before firing. The extraction clock continues while the squad is in cover.
 - One machine-gun squad at a time approaches from the upper left, deploys at the left flank, and sweeps the exposed crossing between shelters. Its amber setup lasts 1.5 seconds, red burst lasts 2.4 seconds, and green reload lasts 9.5 / 8.5 / 7.5 seconds on Rookie / Regular / Veteran. Use COVER before the burst and GO during reload. Burst range is limited to the crossing so trailing shots do not follow escapees past the second shelter. It takes three hits to destroy the squad and interrupt its cycle. Persistent status, aiming lines, phase bars, and bundled radio calls announce the threat.
+- Destroying a machine-gun squad starts a 12 / 10 / 8-second reinforcement gap on Rookie / Regular / Veteran, before its replacement approaches. Raider/sapper deployments gradually accelerate with prisoner crossings, with at most 4 / 5 / 6 active at once. The bottom-right status tracks the current escapee and their shelter.
 
 
 Node 22.18+ or 24 recommended. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`.

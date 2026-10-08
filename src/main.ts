@@ -1,5 +1,5 @@
 import type * as PhaserType from 'phaser';
-import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, type MissionEvent, type Unit } from './model.ts';
+import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, MISSION_DURATION, type MissionEvent, type Unit } from './model.ts';
 import './style.css';
 import retroScreamUrl from './audio/retro-scream.ts';
 import { TouchControls, touchAngle } from './controls.ts';
@@ -53,15 +53,15 @@ function speak(line:string){
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
-overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>COVER THEIR ESCAPE.</h2><p>Twelve prisoners. One gun. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER to shelter at the next stop. Release to GO!<br>Each shelter holds three. Red aiming lines warn of enemy shots.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: drag to aim + hold FIRE</small>';
+overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>ONE CROSSING AT A TIME.</h2><p>Twelve prisoners. Bring eight home in six minutes.<br>Only one escapee leaves at a time. Protect every crossing.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER at the next shelter. Release to GO!<br>Green machine-gun reload bars signal an opening.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: aiming slider + hold FIRE</small>';
 let scene:RescueScene;
 if(mobileLayout()){
-  overlay.querySelector('h2 + p')!.innerHTML='Twelve prisoners. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Tap TAKE COVER to shelter; tap GO! to move.<br>Three places per shelter. Red lines warn of enemy shots.';
+  overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green machine-gun reload bars signal an opening.';
   overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
   mission=new RescueMission();started=false;paused=false;
-  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;
+  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
@@ -70,6 +70,7 @@ class RescueScene extends Phaser.Scene{
     this.ink=this.add.graphics();
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
     this.machinegunStatus=this.add.text(23,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffbd70'}).setDepth(10).setVisible(false);
+    this.escapeeStatus=this.add.text(610,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffdb96'}).setDepth(10);
     this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
     this.input.on('pointerdown',(p:PhaserType.Input.Pointer)=>{
       if(!this.started||this.paused||this.mission.state!=='playing'||mobileLayout())return;
@@ -201,6 +202,9 @@ class RescueScene extends Phaser.Scene{
     const m=this.mission,g=this.ink;g.clear();
     SHELTERS.forEach((s,i)=>{const count=m.units.filter(u=>u.shelter===i).length;g.fillStyle(0x16271e,.9);g.fillRoundedRect(s.x-32,s.y-17,64,34,6);g.lineStyle(2,m.coverOrdered?0xe5aa63:0x8fa67a);g.strokeRoundedRect(s.x-32,s.y-17,64,34,6);for(let slot=0;slot<s.capacity;slot++){g.fillStyle(slot<count?0xe9a153:0x52614a);g.fillRect(s.x-21+slot*17,s.y+19,12,5);}});
     m.units.forEach(u=>this.drawUnit(g,u));
+    const escapee=m.units.find(u=>u.kind==='prisoner');
+    g.fillStyle(0x101b16,.9);g.fillRect(601,565,345,25);
+    this.escapeeStatus.setText(escapee?`ESCAPEE ${String(m.released).padStart(2,'0')}/12 · ${escapee.shelter===undefined?'MOVING':'COVER '+(escapee.shelter===0?'A':'B')}`:m.released<12?'NEXT ESCAPEE · STAND BY':'ALL CROSSINGS COMPLETE');
     const machinegun=m.units.find(u=>u.kind==='machinegun');
     if(machinegun){const phase=machinegun.phase;
       // Persistent instruction stays visible even when another radio line takes priority.
@@ -215,7 +219,7 @@ class RescueScene extends Phaser.Scene{
       const x=this.aim.x,y=Math.min(this.aim.y,515);g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(x,y,14);g.lineBetween(x-21,y,x-7,y);g.lineBetween(x+7,y,x+21,y);g.lineBetween(x,y-21,x,y-7);g.lineBetween(x,y+7,x,y+21);
     }
     for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
-    const remaining=Math.max(0,120-Math.floor(m.time)),seconds=String(remaining%60).padStart(2,'0');
+    const remaining=Math.max(0,MISSION_DURATION-Math.floor(m.time)),seconds=String(remaining%60).padStart(2,'0');
     this.hud.setText(`RESCUED ${String(m.rescued).padStart(2,'0')} / 08     LOST ${m.lost} / 04     GUN ${m.health}%     ${Math.floor(remaining/60)}:${seconds}\n${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+String(m.ammo).padStart(2,'0')+' / 24'}     HOSTILES ${m.kills}     ${m.difficulty.toUpperCase()}`);
     // Extraction progress remains visible without reading the HUD.
     for(let i=0;i<8;i++){g.fillStyle(i<m.rescued?0xc8df94:0x40523b);g.fillRect(785+i*19,24,13,18);}

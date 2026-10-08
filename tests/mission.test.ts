@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { RescueMission, GUN, ROUTE, MACHINEGUN_POSITION } from '../src/model.ts';
+import { RescueMission, GUN, ROUTE, MACHINEGUN_POSITION, MISSION_DURATION } from '../src/model.ts';
 const prisoner=(id:number)=>({id,kind:'prisoner' as const,...ROUTE[2],hp:1,speed:43,waypoint:2,fireTimer:0,alive:true,step:0});
 const machinegun=()=>({id:99,kind:'machinegun' as const,...MACHINEGUN_POSITION,hp:3,speed:35,waypoint:0,fireTimer:0,alive:true,step:0,phase:'setup' as const,phaseTimer:1.5});
 const advance=(m:RescueMission,seconds:number)=>{for(let i=0;i<Math.round(seconds/.05);i++)m.update(.05);};
@@ -31,27 +31,58 @@ test('destroying a machine gun interrupts its burst',()=>{
 test('timing shelter commands around machine gun reloads improves the rescue outcome',()=>{
   const run=(orders:boolean)=>{
     const m=new RescueMission(()=>.5);
-    for(let i=0;i<1800&&m.state==='playing';i++){
+    for(let i=0;i<7200&&m.state==='playing';i++){
       // Isolate this threat so raiders and sappers do not obscure the command timing.
       m.units=m.units.filter(u=>u.kind!=='raider'&&u.kind!=='sapper');
       const gun=m.units.find(u=>u.kind==='machinegun');
       if(orders&&gun)m.commandCover(gun.phase!=='reload');
       m.update(.05);
+      assert.ok(m.units.filter(u=>u.kind==='prisoner').length<=1);
     }
     return m;
   };
   const running=run(false),commanded=run(true);
   assert.equal(commanded.state,'won');assert.ok(commanded.lost<running.lost);
-  assert.ok(commanded.time<running.time);
+  assert.ok(commanded.rescued>running.rescued);
 });
-test('cover has a reaction delay and shelters only three escapees',()=>{
+test('cover has a reaction delay and each shelter holds one escapee',()=>{
   const m=new RescueMission(()=>.5);m.released=12;m.commandCover(true);
   m.units=[prisoner(0)];m.update(.05);assert.equal(m.units[0].shelter,undefined);
   for(let i=0;i<8;i++)m.update(.05);
   m.units=[0,1,2,3].map(prisoner);m.update(.05);
-  assert.equal(m.units.filter(u=>u.shelter===0).length,3);assert.equal(m.units[3].waypoint,3);
+  assert.equal(m.units.filter(u=>u.shelter===0).length,1);assert.equal(m.units[1].waypoint,3);
   const x=m.units[0].x;m.update(.05);assert.equal(m.units[0].x,x);
   m.commandCover(false);m.update(.05);assert.equal(m.units[0].shelter,undefined);assert.equal(m.units[0].waypoint,3);
+});
+test('an escapee in cover blocks the next deployment for as long as necessary',()=>{
+  const m=new RescueMission(()=>.5);m.commandCover(true);
+  for(let i=0;i<600;i++){
+    m.units=m.units.filter(u=>u.kind==='prisoner');m.bullets=[];m.update(.05);
+    assert.ok(m.units.filter(u=>u.kind==='prisoner').length<=1);
+  }
+  assert.equal(m.released,1);assert.equal(m.units[0].shelter,0);
+});
+test('rescue or loss allows the next escapee after a short deployment gap',()=>{
+  for(const outcome of ['rescue','loss']){
+    const m=new RescueMission(()=>.5);m.released=1;
+    m.units=[{...prisoner(0),...(outcome==='rescue'?ROUTE[5]:{x:480,y:480}),waypoint:outcome==='rescue'?5:2,speed:0}];
+    if(outcome==='loss')m.bullets=[{x:480,y:485,vx:0,vy:-200,side:'player',life:1}];
+    m.update(.05);assert.equal(m.units.filter(u=>u.kind==='prisoner').length,0);
+    advance(m,.9);assert.equal(m.released,1);
+    advance(m,1);assert.equal(m.released,2);assert.equal(m.units.filter(u=>u.kind==='prisoner').length,1);
+  }
+});
+test('destroyed machine guns leave a reinforcement gap even late in the mission',()=>{
+  const m=new RescueMission(()=>.5);m.released=12;
+  advance(m,30);m.units=[{...machinegun(),hp:1}];m.bullets=[{x:175,y:320,vx:0,vy:-400,side:'player',life:1}];m.update(.05);
+  advance(m,9);assert.equal(m.units.filter(u=>u.kind==='machinegun').length,0);
+  advance(m,1.1);assert.equal(m.units.filter(u=>u.kind==='machinegun').length,1);
+});
+test('longer missions have bounded reinforcements and the six-minute deadline',()=>{
+  const m=new RescueMission(()=>.5);m.released=12;m.health=100000;
+  advance(m,180);assert.equal(m.state,'playing');
+  assert.ok(m.units.filter(u=>u.kind==='raider'||u.kind==='sapper').length<=5);
+  m.time=MISSION_DURATION-.025;m.update(.05);assert.equal(m.state,'lost');
 });
 test('shelter protects against enemies but does not excuse friendly fire',()=>{
   for(const side of ['enemy','player'] as const){

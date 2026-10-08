@@ -3,10 +3,11 @@ export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegu
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
 export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload';x:number;y:number;shooter?:'player'|'enemy'};
 export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:300,y:238},{x:420,y:345},{x:600,y:336},{x:870,y:460}];
-export const SHELTERS=[{waypoint:2,capacity:3,...ROUTE[2]},{waypoint:4,capacity:3,...ROUTE[4]}];
+export const SHELTERS=[{waypoint:2,capacity:1,...ROUTE[2]},{waypoint:4,capacity:1,...ROUTE[4]}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
 export const GUN={x:480,y:550};
 export const MACHINEGUN_POSITION={x:175,y:300};
+export const MISSION_DURATION=360;
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
 function segmentDistance(p:Point,a:Point,b:Point){
   const dx=b.x-a.x,dy=b.y-a.y;
@@ -50,19 +51,24 @@ export class RescueMission{
     if(this.state!=='playing')return;
     dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;this.nearTimer-=dt;this.commandDelay-=dt;
     if(this.reloadTime>0){this.reloadTime-=dt;if(this.reloadTime<=0)this.ammo=24;}
-    this.releaseTimer-=dt;
-    if(this.releaseTimer<=0&&this.released<12){this.units.push({id:this.nextId++,kind:'prisoner',...ROUTE[0],hp:1,speed:43,waypoint:1,fireTimer:0,alive:true,step:0});this.released++;this.releaseTimer=5.2;}
+    // Each rescue is its own crossing. A shelter hold must never release the next person.
+    if(!this.units.some(u=>u.alive&&u.kind==='prisoner')){
+      this.releaseTimer-=dt;
+      if(this.releaseTimer<=0&&this.released<12){this.units.push({id:this.nextId++,kind:'prisoner',...ROUTE[0],hp:1,speed:43,waypoint:1,fireTimer:0,alive:true,step:0});this.released++;this.releaseTimer=1.8;}
+    }
     this.spawnTimer-=dt;
     this.machinegunTimer-=dt;
     if(this.machinegunTimer<=0&&!this.units.some(u=>u.alive&&u.kind==='machinegun')){
       this.units.push({id:this.nextId++,kind:'machinegun',x:35,y:220,hp:3,speed:35,waypoint:0,fireTimer:0,alive:true,step:0,phase:'advance',phaseTimer:0});
       this.machinegunTimer=24;this.events.push({kind:'machinegun',x:35,y:220});
     }
-    if(this.spawnTimer<=0){
+    const hostileLimit=this.difficulty==='rookie'?4:this.difficulty==='veteran'?6:5;
+    if(this.spawnTimer<=0&&this.units.filter(u=>u.alive&&(u.kind==='raider'||u.kind==='sapper')).length<hostileLimit){
       const d=this.difficulty==='rookie'?.8:this.difficulty==='veteran'?1.25:1;
       const sapper=this.random()<.28;
       this.units.push({id:this.nextId++,kind:sapper?'sapper':'raider',x:sapper?30:935,y:sapper?450:120+this.random()*190,hp:2,speed:(sapper?39:30)*d,waypoint:0,fireTimer:1.7+this.random(),alive:true,step:0});
-      this.spawnTimer=(4.3-this.time/100+this.random()*1.6)/d;
+      // Escalate with crossings, without letting a longer mission create an unlimited army.
+      this.spawnTimer=(4.3-Math.max(0,this.released-1)*.12+this.random()*1.6)/d;
       if(sapper)this.events.push({kind:'enemy',x:30,y:450});
     }
     for(const u of this.units){
@@ -98,8 +104,7 @@ export class RescueMission{
           const shelter=SHELTERS.findIndex(s=>s.waypoint===u.waypoint);
           const occupants=this.units.filter(p=>p.alive&&p.shelter===shelter);
           if(this.coverOrdered&&this.commandDelay<=0&&shelter>=0&&occupants.length<SHELTERS[shelter].capacity){
-            const slot=[-17,0,17].find(offset=>!occupants.some(p=>Math.abs(p.x-(target.x+offset))<5))!;
-            u.shelter=shelter;u.x=target.x+slot;u.y=target.y;continue;
+            u.shelter=shelter;u.x=target.x;u.y=target.y;continue;
           }
           u.waypoint++;if(u.waypoint>=ROUTE.length){u.alive=false;this.rescued++;this.events.push({kind:'rescue',x:u.x,y:u.y});continue;}target=ROUTE[u.waypoint];
         }
@@ -130,13 +135,13 @@ export class RescueMission{
         if(!u.alive||(b.side==='enemy'&&(u.kind!=='prisoner'||u.shelter!==undefined)))continue;
         const d=segmentDistance(u,previous,b);
         if(b.side==='player'&&u.kind==='prisoner'&&d<38&&d>=12&&this.nearTimer<=0){this.nearTimer=7;this.events.push({kind:'near',x:u.x,y:u.y});}
-        if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y,shooter:b.side});}else this.kills++;}break;}
+        if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y,shooter:b.side});}else{this.kills++;if(u.kind==='machinegun')this.machinegunTimer=this.difficulty==='rookie'?12:this.difficulty==='veteran'?8:10;}}break;}
       }
     }
     this.units=this.units.filter(u=>u.alive);this.bullets=this.bullets.filter(b=>b.life>0&&b.x>-10&&b.x<970&&b.y>-10&&b.y<610);
     this.health=Math.max(0,this.health);
     // Losing your position ends the operation even if the last rescue happens simultaneously.
-    if(this.health<=0||this.lost>4||this.time>=120){this.state='lost';this.events.push({kind:'defeat',...GUN});}
+    if(this.health<=0||this.lost>4||this.time>=MISSION_DURATION){this.state='lost';this.events.push({kind:'defeat',...GUN});}
     else if(this.rescued>=8){this.state='won';this.events.push({kind:'victory',...GUN});}
   }
   drainEvents(){const events=this.events;this.events=[];return events;}
