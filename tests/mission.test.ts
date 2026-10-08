@@ -13,7 +13,7 @@ test('machine gun telegraphs setup, sweeps a burst, then leaves a reload window'
   m.bullets=[];m.drainEvents();advance(m,3);
   assert.equal(m.units[0].phase,'reload');assert.equal(m.bullets.filter(b=>b.side==='enemy').length,0);
   assert.equal(m.drainEvents().filter(e=>e.kind==='enemyburst').length,0);
-  advance(m,2.5);assert.equal(m.units[0].phase,'setup');
+  advance(m,5.5);assert.equal(m.units[0].phase,'setup');
 });
 test('machine gun deployments are delayed and never overlap',()=>{
   const m=new RescueMission(()=>.5);m.released=12;
@@ -27,6 +27,22 @@ test('destroying a machine gun interrupts its burst',()=>{
   m.bullets=[{x:175,y:320,vx:0,vy:-400,side:'player',life:1}];m.update(.05);
   assert.equal(m.kills,1);assert.equal(m.units.length,0);advance(m,1);
   assert.equal(m.drainEvents().filter(e=>e.kind==='enemyburst').length,0);
+});
+test('timing shelter commands around machine gun reloads improves the rescue outcome',()=>{
+  const run=(orders:boolean)=>{
+    const m=new RescueMission(()=>.5);
+    for(let i=0;i<1800&&m.state==='playing';i++){
+      // Isolate this threat so raiders and sappers do not obscure the command timing.
+      m.units=m.units.filter(u=>u.kind!=='raider'&&u.kind!=='sapper');
+      const gun=m.units.find(u=>u.kind==='machinegun');
+      if(orders&&gun)m.commandCover(gun.phase!=='reload');
+      m.update(.05);
+    }
+    return m;
+  };
+  const running=run(false),commanded=run(true);
+  assert.equal(commanded.state,'won');assert.ok(commanded.lost<running.lost);
+  assert.ok(commanded.time<running.time);
 });
 test('cover has a reaction delay and shelters only three escapees',()=>{
   const m=new RescueMission(()=>.5);m.released=12;m.commandCover(true);

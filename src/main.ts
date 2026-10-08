@@ -183,7 +183,7 @@ class RescueScene extends Phaser.Scene{
       g.lineStyle(2,color);g.strokeCircle(x,y,21);
       if(u.phase!=='advance'){
         g.fillStyle(0x101b16,.9);g.fillRect(x-31,y-35,62,9);
-        const duration=u.phase==='reload'?(this.mission.difficulty==='rookie'?6.5:this.mission.difficulty==='veteran'?4.5:5.5):u.phase==='burst'?2.4:1.5;
+        const duration=u.phase==='reload'?(this.mission.difficulty==='rookie'?9.5:this.mission.difficulty==='veteran'?7.5:8.5):u.phase==='burst'?2.4:1.5;
         g.fillStyle(color);g.fillRect(x-30,y-34,60*Math.max(0,(u.phaseTimer??0)/duration),7);
         g.lineStyle(3,0x172119);g.lineBetween(x+5,y+2,x+19,y+12);g.lineBetween(x+5,y+2,x-3,y+13);g.lineBetween(x,y,x+25,y);
       }

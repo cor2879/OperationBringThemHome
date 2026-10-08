@@ -81,11 +81,11 @@ export class RescueMission{
             const sweep=Math.max(0,Math.min(1,1-(u.phaseTimer??0)/2.4));
             u.aimPoint={x:340+sweep*115,y:274+sweep*69};u.fireTimer-=dt;
             if((u.phaseTimer??0)<=0){
-              u.phase='reload';u.phaseTimer=this.difficulty==='rookie'?6.5:this.difficulty==='veteran'?4.5:5.5;u.aimPoint=undefined;
+              u.phase='reload';u.phaseTimer=this.difficulty==='rookie'?9.5:this.difficulty==='veteran'?7.5:8.5;u.aimPoint=undefined;
               this.events.push({kind:'enemyreload',x:u.x,y:u.y});
             }else if(u.fireTimer<=0){
               const a=Math.atan2(u.aimPoint.y-u.y,u.aimPoint.x-u.x);
-              this.bullets.push({x:u.x+Math.cos(a)*18,y:u.y+Math.sin(a)*18,vx:Math.cos(a)*260,vy:Math.sin(a)*260,side:'enemy',life:2.5});
+              this.bullets.push({x:u.x+Math.cos(a)*18,y:u.y+Math.sin(a)*18,vx:Math.cos(a)*260,vy:Math.sin(a)*260,side:'enemy',life:(distance(u,u.aimPoint)+45)/260});
               u.fireTimer=.24;this.events.push({kind:'enemyburst',x:u.x,y:u.y});
             }
           }else if(u.phase==='reload'&&u.phaseTimer<=0){u.phase='setup';u.phaseTimer=1.5;u.aimPoint={x:340,y:274};}
