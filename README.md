@@ -17,6 +17,8 @@ Cover twelve escaping prisoners with a defensive gun. Bring at least eight to th
 ## Development
 ### Squad-command field test
 
+Mobile: use the left-thumb aiming slider, hold FIRE with the right thumb, and tap TAKE COVER / GO! to toggle the order. Releasing FIRE does not release the cover order. RELOAD remains separate; firing an empty clip still starts a reload. Pause/restart clear touch inputs. Desktop mouse and keyboard controls are unchanged.
+
 - Hold **C** or **HOLD: TAKE COVER** to stop escapees at the next shelter; release to send them onward.
 - Commands have a short reaction delay. Shelters A and B each hold three people; overflow continues along the route.
 - Sheltered escapees are protected from enemy fire, but player bullets remain dangerous. Raiders target exposed escapees or your gun.

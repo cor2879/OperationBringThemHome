@@ -13,7 +13,7 @@
     <section class="cabinet" aria-label="Rescue mission">
       <div class="status-bar"><span><i></i> LIVE FEED / SECTOR 07</span><span id="mission-status">AWAITING YOUR COMMAND</span></div>
       <div id="game" aria-label="Game display"></div>
-      <div class="touch-controls" aria-label="Touch controls"><span>DRAG ON THE FIELD TO AIM</span><button id="touch-fire">HOLD FIRE</button><button id="touch-reload">RELOAD</button></div>
+      <div class="touch-controls" aria-label="Touch controls"><div class="touch-aim"><label for="touch-aim">AIM · LEFT / RIGHT</label><input id="touch-aim" type="range" min="0" max="100" step="0.1" value="50" aria-label="Aim gun left or right"><button id="touch-reload">RELOAD</button></div><div class="touch-actions"><button id="touch-fire">HOLD FIRE</button><button id="touch-cover" aria-pressed="false">TAKE COVER</button></div></div>
       <div class="squad-controls"><button id="cover" aria-pressed="false">HOLD: TAKE COVER</button><span>Hold C or this button: shelter at the next stop. Release: GO!<br>Three places per shelter · Red aiming lines warn of enemy shots.</span></div>
       <div class="toolbar"><span><b>A/D or ←/→</b> aim &nbsp; <b>SPACE</b> fire &nbsp; <b>R</b> reload &nbsp; <b>P</b> pause<br>Or aim with the mouse and hold click to fire.</span><div><button id="pause">PAUSE</button><button id="sound" aria-pressed="true">SOUND ON</button><button id="voice" aria-pressed="true">VOICE ON</button><button id="fullscreen">FULLSCREEN</button></div></div>
     </section>

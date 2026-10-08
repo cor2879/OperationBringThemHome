@@ -2,11 +2,16 @@ import type * as PhaserType from 'phaser';
 import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, type MissionEvent, type Unit } from './model.ts';
 import './style.css';
 import retroScreamUrl from './audio/retro-scream.ts';
+import { TouchControls, touchAngle } from './controls.ts';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
 const held=new Set<string>();
 let firing=false;
+const touch=new TouchControls();
+const mobileLayout=()=>matchMedia('(pointer:coarse), (max-width:650px)').matches||new URLSearchParams(location.search).get('controls')==='touch';
+document.body.classList.toggle('touch-layout',mobileLayout());
+function updateTouchCover(){ $('touch-cover').textContent=touch.cover?'GO!':'TAKE COVER';$('touch-cover').setAttribute('aria-pressed',String(touch.cover)); }
 const coverPointers=new Set<number>();
 let soundOn=true,voiceOn=true;
 try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
@@ -62,6 +67,10 @@ type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
 overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>COVER THEIR ESCAPE.</h2><p>Twelve prisoners. One gun. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER to shelter at the next stop. Release to GO!<br>Each shelter holds three. Red aiming lines warn of enemy shots.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: drag to aim + hold FIRE</small>';
 let scene:RescueScene;
+if(mobileLayout()){
+  overlay.querySelector('h2 + p')!.innerHTML='Twelve prisoners. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Tap TAKE COVER to shelter; tap GO! to move.<br>Three places per shelter. Red lines warn of enemy shots.';
+  overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
+}
 class RescueScene extends Phaser.Scene{
   mission=new RescueMission();started=false;paused=false;
   ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;
@@ -74,12 +83,12 @@ class RescueScene extends Phaser.Scene{
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
     this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
     this.input.on('pointerdown',(p:PhaserType.Input.Pointer)=>{
-      if(!this.started||this.paused||this.mission.state!=='playing')return;
+      if(!this.started||this.paused||this.mission.state!=='playing'||mobileLayout())return;
       this.focus();unlockAudio();this.aimAt(p.x,p.y);
       if(!matchMedia('(pointer:coarse)').matches)this.pointerHeld=true;
     });
     this.input.on('pointermove',(p:PhaserType.Input.Pointer)=>{
-      if(!this.started||this.paused)return;
+      if(!this.started||this.paused||mobileLayout())return;
       if(!matchMedia('(pointer:coarse)').matches||p.isDown)this.aimAt(p.x,p.y);
     });
     this.input.on('pointerup',()=>{this.pointerHeld=false;});
@@ -91,6 +100,7 @@ class RescueScene extends Phaser.Scene{
   start(){
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
+    touch.reset();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
     stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
@@ -99,7 +109,7 @@ class RescueScene extends Phaser.Scene{
   }
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
-    this.paused=paused;held.clear();coverPointers.clear();this.mission.commandCover(false);firing=false;this.pointerHeld=false;
+    this.paused=paused;held.clear();coverPointers.clear();touch.reset();updateTouchCover();this.mission.commandCover(false);firing=false;this.pointerHeld=false;
     if(paused){stopVoice();stopScream();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
@@ -126,13 +136,13 @@ class RescueScene extends Phaser.Scene{
     if(!this.paused){
       this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
       if(this.started&&this.mission.state==='playing'){
-        const cover=held.has('KeyC')||coverPointers.size>0;
+        const cover=held.has('KeyC')||coverPointers.size>0||touch.cover;
         if(this.mission.commandCover(cover))this.callout('SQUAD',cover?'Take cover! Stop at the next shelter!':'Moving! Cover us!',true);
         $('cover').setAttribute('aria-pressed',String(cover));
         $('cover').textContent=cover?'IN COVER · RELEASE TO GO':'HOLD: TAKE COVER';
         const direction=(held.has('KeyD')||held.has('ArrowRight')?1:0)-(held.has('KeyA')||held.has('ArrowLeft')?1:0);
         if(direction){this.mission.angle=Phaser.Math.Clamp(this.mission.angle+direction*1.6*dt,-Math.PI+.08,-.08);this.aim={x:GUN.x+Math.cos(this.mission.angle)*380,y:GUN.y+Math.sin(this.mission.angle)*380};}
-        if(held.has('Space')||firing||this.pointerHeld)this.mission.fire();
+        if(held.has('Space')||firing||touch.firing||this.pointerHeld)this.mission.fire();
         this.mission.update(dt);this.mission.drainEvents().forEach(e=>this.handleEvent(e));
         if(this.mission.state!=='playing'&&this.lastState!==this.mission.state){this.lastState=this.mission.state;this.finish();}
       }
@@ -141,7 +151,7 @@ class RescueScene extends Phaser.Scene{
     this.draw();
   }
   finish(){
-    held.clear();firing=false;this.pointerHeld=false;this.updateStatus();
+    held.clear();touch.reset();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
     this.callout('CONTROL',won?'Extraction confirmed. You brought them home.':'Pull back. The operation is over.',true);
     overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Next up: the helicopter escape.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
@@ -215,6 +225,7 @@ overlay.addEventListener('click',e=>{
 });
 const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyC','KeyR','KeyP','Escape','Enter']);
 document.addEventListener('keydown',e=>{
+  if(e.target===$('touch-aim'))return;
   if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
   if(!e.repeat){if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
@@ -224,8 +235,11 @@ window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&scene)scene.
 window.addEventListener('pointercancel',e=>{if(e.pointerType==='mouse'&&scene)scene.pointerHeld=false;});
 window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
-$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused)return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);firing=true;});
-['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,()=>firing=false));
+$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);touch.firePointers.add(e.pointerId);});
+['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,e=>touch.firePointers.delete((e as PointerEvent).pointerId)));
+$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
+$('touch-aim').addEventListener('pointerdown',()=>unlockAudio());
+$('touch-cover').addEventListener('click',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();touch.toggleCover();updateTouchCover();});
 $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
 $('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('cover').addEventListener(type,e=>{coverPointers.delete((e as PointerEvent).pointerId);}));
