@@ -1,8 +1,9 @@
 export type Point={x:number;y:number};
-export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number};
+export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point};
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
 export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat';x:number;y:number;shooter?:'player'|'enemy'};
-export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:270,y:280},{x:420,y:345},{x:660,y:405},{x:870,y:460}];
+export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:300,y:238},{x:420,y:345},{x:600,y:336},{x:870,y:460}];
+export const SHELTERS=[{waypoint:2,capacity:3,...ROUTE[2]},{waypoint:4,capacity:3,...ROUTE[4]}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
 export const GUN={x:480,y:550};
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -26,6 +27,13 @@ export class RescueMission{
   time=0;rescued=0;lost=0;released=0;kills=0;health=100;ammo=24;reloadTime=0;fireCooldown=0;angle=-Math.PI/2;state:'playing'|'won'|'lost'='playing';
   private releaseTimer=1;private spawnTimer=3;private nextId=0;private nearTimer=0;
   private random:()=>number;
+  coverOrdered=false;private commandDelay=0;
+  commandCover(hold:boolean){
+    if(this.state!=='playing'||hold===this.coverOrdered)return false;
+    this.coverOrdered=hold;this.commandDelay=hold?.35:0;
+    if(!hold)for(const u of this.units){if(u.shelter!==undefined)u.waypoint++;u.shelter=undefined;}
+    return true;
+  }
   difficulty:'rookie'|'regular'|'veteran';
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){this.random=random;this.difficulty=difficulty;}
   reload(){if(this.ammo<24&&this.reloadTime<=0&&this.state==='playing'){this.reloadTime=1.65;this.events.push({kind:'reload',...GUN});}}
@@ -39,7 +47,7 @@ export class RescueMission{
   }
   update(dt:number){
     if(this.state!=='playing')return;
-    dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;this.nearTimer-=dt;
+    dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;this.nearTimer-=dt;this.commandDelay-=dt;
     if(this.reloadTime>0){this.reloadTime-=dt;if(this.reloadTime<=0)this.ammo=24;}
     this.releaseTimer-=dt;
     if(this.releaseTimer<=0&&this.released<12){this.units.push({id:this.nextId++,kind:'prisoner',...ROUTE[0],hp:1,speed:43,waypoint:1,fireTimer:0,alive:true,step:0});this.released++;this.releaseTimer=5.2;}
@@ -55,18 +63,30 @@ export class RescueMission{
       if(!u.alive)continue;u.step+=dt*u.speed/10;
       let target:Point;
       if(u.kind==='prisoner'){
+        if(u.shelter!==undefined)continue;
         target=ROUTE[u.waypoint];
-        if(distance(u,target)<7){u.waypoint++;if(u.waypoint>=ROUTE.length){u.alive=false;this.rescued++;this.events.push({kind:'rescue',x:u.x,y:u.y});continue;}target=ROUTE[u.waypoint];}
+        if(distance(u,target)<7){
+          const shelter=SHELTERS.findIndex(s=>s.waypoint===u.waypoint);
+          const occupants=this.units.filter(p=>p.alive&&p.shelter===shelter);
+          if(this.coverOrdered&&this.commandDelay<=0&&shelter>=0&&occupants.length<SHELTERS[shelter].capacity){
+            const slot=[-17,0,17].find(offset=>!occupants.some(p=>Math.abs(p.x-(target.x+offset))<5))!;
+            u.shelter=shelter;u.x=target.x+slot;u.y=target.y;continue;
+          }
+          u.waypoint++;if(u.waypoint>=ROUTE.length){u.alive=false;this.rescued++;this.events.push({kind:'rescue',x:u.x,y:u.y});continue;}target=ROUTE[u.waypoint];
+        }
       }else if(u.kind==='sapper'){
         target=GUN;if(distance(u,GUN)<35){u.alive=false;this.health-=22;this.events.push({kind:'hit',...GUN});continue;}
       }else{
-        const candidates=this.units.filter(p=>p.alive&&p.kind==='prisoner');
+        const candidates=this.units.filter(p=>p.alive&&p.kind==='prisoner'&&p.shelter===undefined);
         target=candidates.sort((a,b)=>distance(a,u)-distance(b,u))[0]||GUN;
-        u.fireTimer-=dt;
+        if(distance(u,target)<290)u.fireTimer-=dt;
+        else{u.fireTimer=Math.max(.7,u.fireTimer);u.aimPoint=undefined;}
+        if(u.fireTimer<=.7&&!u.aimPoint&&distance(u,target)<290)u.aimPoint={x:target.x,y:target.y};
         if(u.fireTimer<=0&&distance(u,target)<290){
           const spread=this.difficulty==='rookie'?90:this.difficulty==='veteran'?35:65;
-          const a=Math.atan2(target.y-u.y+(this.random()-.5)*spread,target.x-u.x+(this.random()-.5)*spread);
-          this.bullets.push({x:u.x,y:u.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,side:'enemy',life:2});u.fireTimer=2.5+this.random()*1.7;
+          const aim=u.aimPoint||target;
+          const a=Math.atan2(aim.y-u.y+(this.random()-.5)*spread,aim.x-u.x+(this.random()-.5)*spread);
+          this.bullets.push({x:u.x,y:u.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,side:'enemy',life:2});u.fireTimer=2.5+this.random()*1.7;u.aimPoint=undefined;
         }
       }
       const d=distance(u,target);if(u.kind!=='raider'||d>135){u.x+=(target.x-u.x)/Math.max(d,1)*u.speed*dt;u.y+=(target.y-u.y)/Math.max(d,1)*u.speed*dt;}
@@ -78,7 +98,7 @@ export class RescueMission{
       if(WALLS.some(w=>hitsWall(previous,b,w))){b.life=0;this.events.push({kind:'hit',x:b.x,y:b.y});continue;}
       if(b.side==='enemy'&&segmentDistance(GUN,previous,b)<27){b.life=0;this.health-=7;this.events.push({kind:'hit',...GUN});continue;}
       for(const u of this.units){
-        if(!u.alive||(b.side==='enemy'&&u.kind!=='prisoner'))continue;
+        if(!u.alive||(b.side==='enemy'&&(u.kind!=='prisoner'||u.shelter!==undefined)))continue;
         const d=segmentDistance(u,previous,b);
         if(b.side==='player'&&u.kind==='prisoner'&&d<38&&d>=12&&this.nearTimer<=0){this.nearTimer=7;this.events.push({kind:'near',x:u.x,y:u.y});}
         if(d<12){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='prisoner'){this.lost++;this.events.push({kind:'loss',x:u.x,y:u.y,shooter:b.side});}else this.kills++;}break;}

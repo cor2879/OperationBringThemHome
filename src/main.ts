@@ -1,5 +1,5 @@
 import type * as PhaserType from 'phaser';
-import { RescueMission, ROUTE, WALLS, GUN, type MissionEvent, type Unit } from './model.ts';
+import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, type MissionEvent, type Unit } from './model.ts';
 import './style.css';
 import retroScreamUrl from './audio/retro-scream.ts';
 declare const Phaser: typeof PhaserType;
@@ -7,6 +7,7 @@ declare const Phaser: typeof PhaserType;
 const $=(id:string)=>document.getElementById(id)!;
 const held=new Set<string>();
 let firing=false;
+const coverPointers=new Set<number>();
 let soundOn=true,voiceOn=true;
 try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
 let audio:AudioContext|undefined;
@@ -59,7 +60,7 @@ function speak(line:string){
 }
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
-overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>COVER THEIR ESCAPE.</h2><p>Twelve prisoners. One gun. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: drag to aim + hold FIRE</small>';
+overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>COVER THEIR ESCAPE.</h2><p>Twelve prisoners. One gun. Bring at least eight home.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER to shelter at the next stop. Release to GO!<br>Each shelter holds three. Red aiming lines warn of enemy shots.</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: drag to aim + hold FIRE</small>';
 let scene:RescueScene;
 class RescueScene extends Phaser.Scene{
   mission=new RescueMission();started=false;paused=false;
@@ -89,7 +90,7 @@ class RescueScene extends Phaser.Scene{
   aimAt(x:number,y:number){this.aim={x,y};this.mission.angle=Phaser.Math.Clamp(Math.atan2(y-GUN.y,x-GUN.x),-Math.PI+.08,-.08);}
   start(){
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
-    this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();firing=false;
+    this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
@@ -98,7 +99,7 @@ class RescueScene extends Phaser.Scene{
   }
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
-    this.paused=paused;held.clear();firing=false;this.pointerHeld=false;
+    this.paused=paused;held.clear();coverPointers.clear();this.mission.commandCover(false);firing=false;this.pointerHeld=false;
     if(paused){stopVoice();stopScream();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
@@ -125,6 +126,10 @@ class RescueScene extends Phaser.Scene{
     if(!this.paused){
       this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
       if(this.started&&this.mission.state==='playing'){
+        const cover=held.has('KeyC')||coverPointers.size>0;
+        if(this.mission.commandCover(cover))this.callout('SQUAD',cover?'Take cover! Stop at the next shelter!':'Moving! Cover us!',true);
+        $('cover').setAttribute('aria-pressed',String(cover));
+        $('cover').textContent=cover?'IN COVER · RELEASE TO GO':'HOLD: TAKE COVER';
         const direction=(held.has('KeyD')||held.has('ArrowRight')?1:0)-(held.has('KeyA')||held.has('ArrowLeft')?1:0);
         if(direction){this.mission.angle=Phaser.Math.Clamp(this.mission.angle+direction*1.6*dt,-Math.PI+.08,-.08);this.aim={x:GUN.x+Math.cos(this.mission.angle)*380,y:GUN.y+Math.sin(this.mission.angle)*380};}
         if(held.has('Space')||firing||this.pointerHeld)this.mission.fire();
@@ -155,6 +160,7 @@ class RescueScene extends Phaser.Scene{
     for(let i=1;i<ROUTE.length;i++){const a=ROUTE[i-1],b=ROUTE[i],d=Math.hypot(b.x-a.x,b.y-a.y);for(let t=0;t<d;t+=24){g.lineBetween(a.x+(b.x-a.x)*t/d,a.y+(b.y-a.y)*t/d,a.x+(b.x-a.x)*Math.min(t+10,d)/d,a.y+(b.y-a.y)*Math.min(t+10,d)/d);}}
     for(const w of WALLS){g.fillStyle(0x101a16,.5);g.fillRect(w.x+5,w.y+8,w.w,w.h);g.fillStyle(0x92906b);g.fillRect(w.x,w.y,w.w,w.h);for(let x=w.x;x<w.x+w.w;x+=23){g.lineStyle(2,0x5c624a);g.lineBetween(x,w.y,x,w.y+w.h);}}
     this.add.text(255,168,'COVER A',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});this.add.text(550,265,'COVER B',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});
+    SHELTERS.forEach((s,i)=>this.add.text(s.x-32,s.y+29,'SHELTER '+(i?'B':'A'),{fontFamily:'monospace',fontSize:'10px',color:'#d9c08f'}));
     // Extraction truck and perimeter.
     g.fillStyle(0x19261c);g.fillRect(818,431,125,64);g.lineStyle(2,0xa6ba82);g.strokeRect(818,431,125,64);
     g.fillStyle(0x586d43);g.fillRect(862,436,62,45);g.fillStyle(0x6f8551);g.fillRect(925,446,20,35);g.fillStyle(0xa9c5bb);g.fillRect(928,449,13,10);g.fillStyle(0x0c1510);g.fillRect(873,478,13,9);g.fillRect(927,478,13,9);
@@ -170,6 +176,8 @@ class RescueScene extends Phaser.Scene{
   }
   drawUnit(g:PhaserType.GameObjects.Graphics,u:Unit){
     const x=Math.round(u.x),y=Math.round(u.y),step=Math.sin(u.step)>0?2:-2;
+    if(u.aimPoint){g.lineStyle(1,0xff7654,.55);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);g.lineStyle(2,0xffbd70);g.strokeCircle(x,y,19+Math.sin(this.tick*16)*3);}
+    if(u.shelter!==undefined){g.fillStyle(0xe9a153);g.fillRect(x-6,y-3,12,8);g.fillStyle(0xd3b993);g.fillRect(x-3,y-8,6,5);return;}
     g.fillStyle(0x0a130e,.45);g.fillEllipse(x+2,y+10,18,7);
     const uniform=u.kind==='prisoner'?0xe9a153:u.kind==='sapper'?0x866d53:0x6b7856;
     g.fillStyle(0xd3b993);g.fillRect(x-3,y-12,6,5);g.fillStyle(uniform);g.fillRect(x-5,y-6,10,10);g.fillRect(x-8,y-4+step,3,8);g.fillRect(x+5,y-4-step,3,8);
@@ -179,6 +187,7 @@ class RescueScene extends Phaser.Scene{
   }
   draw(){
     const m=this.mission,g=this.ink;g.clear();
+    SHELTERS.forEach((s,i)=>{const count=m.units.filter(u=>u.shelter===i).length;g.fillStyle(0x16271e,.9);g.fillRoundedRect(s.x-32,s.y-17,64,34,6);g.lineStyle(2,m.coverOrdered?0xe5aa63:0x8fa67a);g.strokeRoundedRect(s.x-32,s.y-17,64,34,6);for(let slot=0;slot<s.capacity;slot++){g.fillStyle(slot<count?0xe9a153:0x52614a);g.fillRect(s.x-21+slot*17,s.y+19,12,5);}});
     m.units.forEach(u=>this.drawUnit(g,u));
     m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.012,b.y-b.vy*.012);});
     g.fillStyle(0x879071);g.fillCircle(GUN.x,GUN.y,18);g.lineStyle(11,0x222c23);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*38,GUN.y+Math.sin(m.angle)*38);g.lineStyle(5,0xc1b98e);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*40,GUN.y+Math.sin(m.angle)*40);
@@ -204,20 +213,22 @@ overlay.addEventListener('click',e=>{
   const id=(e.target as HTMLElement).id;
   if(id==='begin'||id==='restart')scene.start();if(id==='resume')scene.setPause(false);
 });
-const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyR','KeyP','Escape','Enter']);
+const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyC','KeyR','KeyP','Escape','Enter']);
 document.addEventListener('keydown',e=>{
   if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
   if(!e.repeat){if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
 },true);
 document.addEventListener('keyup',e=>{if(!scene?.started||!controlKeys.has(e.code))return;e.preventDefault();e.stopPropagation();held.delete(e.code);},true);
-window.addEventListener('pointerup',()=>{firing=false;if(scene)scene.pointerHeld=false;});
-window.addEventListener('pointercancel',()=>{firing=false;if(scene)scene.pointerHeld=false;});
+window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&scene)scene.pointerHeld=false;});
+window.addEventListener('pointercancel',e=>{if(e.pointerType==='mouse'&&scene)scene.pointerHeld=false;});
 window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused)return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);firing=true;});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,()=>firing=false));
 $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
+$('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);});
+['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('cover').addEventListener(type,e=>{coverPointers.delete((e as PointerEvent).pointerId);}));
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
 function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn){stopScream();flushVoice();}unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});

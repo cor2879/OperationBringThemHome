@@ -15,6 +15,13 @@ Cover twelve escaping prisoners with a defensive gun. Bring at least eight to th
 - Losing browser focus pauses the mission. Resume explicitly to continue.
 
 ## Development
+### Squad-command field test
+
+- Hold **C** or **HOLD: TAKE COVER** to stop escapees at the next shelter; release to send them onward.
+- Commands have a short reaction delay. Shelters A and B each hold three people; overflow continues along the route.
+- Sheltered escapees are protected from enemy fire, but player bullets remain dangerous. Raiders target exposed escapees or your gun.
+- Raiders telegraph a locked aiming line before firing. The extraction clock continues while the squad is in cover.
+
 
 Node 22.18+ or 24 recommended. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`.
 
