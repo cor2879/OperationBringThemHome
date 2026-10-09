@@ -26,8 +26,8 @@ export function drawRoadVehicle(g:Ink,u:Unit){
   const width=armor?56:48,height=armor?84:72,top=y-height/2;
   r(g,0x17211a,x-width/2-5,top+7,width+10,height-10);
   for(const side of [-1,1])for(const dy of [-22,18]){r(g,0x101b14,x+side*(width/2)-4,y+dy,9,18);r(g,0x707660,x+side*(width/2)-2,y+dy+3,5,9);}
-  r(g,friendly?0x687b54:0x62714a,x-width/2,top,width,height);r(g,0x9eaa7e,x-width/2+3,top+2,width-6,4);
-  r(g,friendly?0x435e45:0x344932,x-width/2+5,top+12,width-10,height-27);
+  r(g,friendly?0xd9dcc7:0x62714a,x-width/2,top,width,height);r(g,friendly?0xf5f0d6:0x9eaa7e,x-width/2+3,top+2,width-6,4);
+  r(g,friendly?0x3b86aa:0x344932,x-width/2+5,top+12,width-10,height-27);
   r(g,0x29413c,x-width/2+5,y+height/2-23,width-10,10);r(g,0xb1c8b0,x-width/2+7,y+height/2-22,width-14,3);
   for(const sx of [-1,1])r(g,0xe3ce90,x+sx*(width/2-7)-3,y+height/2-5,6,3);
   if(friendly){
@@ -44,8 +44,8 @@ export function drawRoadVehicle(g:Ink,u:Unit){
   if(u.hp<=(armor?3:1)){g.fillStyle(0x85816c,.7);g.fillCircle(x-8,y-40,8);g.fillCircle(x-11,y-52,5);}
 }
 export function drawConvoyTruck(g:Ink,angle:number){
-  const {x,y}=GUN;r(g,0x14201a,x-43,y-43,86,101);r(g,0x788957,x-35,y-45,70,91);r(g,0xabb283,x-32,y-44,64,4);
-  r(g,0x425839,x-29,y-34,58,66);r(g,0xe59a4d,x-21,y-30,42,15);r(g,0xecc68d,x-17,y-27,34,4);
+  const {x,y}=GUN;r(g,0x14201a,x-43,y-43,86,101);r(g,0xd9dcc7,x-35,y-45,70,91);r(g,0xf5f0d6,x-32,y-44,64,4);
+  r(g,0x3b86aa,x-29,y-34,58,66);r(g,0xe59a4d,x-21,y-30,42,15);r(g,0xecc68d,x-17,y-27,34,4);
   r(g,0x29443d,x-28,y+28,56,12);r(g,0xa1bfae,x-25,y+29,50,3);
   drawPlayerGun(g,angle);
 }

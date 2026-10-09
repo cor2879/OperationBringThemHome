@@ -2,6 +2,7 @@ import {RescueMission,GUN,type Unit,type Point} from './model.ts';
 import {sweptDistance} from './defense.ts';
 export const BREAKOUT_DURATION=150;
 export const FINAL_PURSUIT_TIME=120;
+export const PURSUIT_ARMOR=18;
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
 export class BreakoutMission extends RescueMission{
   private rng:()=>number;private serial=0;private spawnClock=4;private trafficClock=12;private armorClock=52;private bridgeCalled=false;private spawnCount=0;private finalId=-1;
@@ -9,15 +10,25 @@ export class BreakoutMission extends RescueMission{
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){super(random,difficulty);this.rng=random;}
   get remaining(){return Math.max(0,BREAKOUT_DURATION-this.time);}
   override commandCover(_hold:boolean){return false;}
-  private add(kind:Unit['kind'],lane:number){const heavy=kind==='pursuit',friendly=kind==='friendlytruck';const u:Unit={id:this.serial++,kind,x:lane,y:90,hp:heavy?10:friendly?2:kind==='jeep'?3:1,speed:heavy?34:friendly?57:kind==='jeep'?44:67,waypoint:lane,fireTimer:0,alive:true,step:0,phase:'advance',phaseTimer:0};this.units.push(u);return u;}
+  private add(kind:Unit['kind'],lane:number){const heavy=kind==='pursuit',friendly=kind==='friendlytruck';const u:Unit={id:this.serial++,kind,x:lane,y:90,hp:heavy?PURSUIT_ARMOR:friendly?2:kind==='jeep'?3:1,speed:heavy?34:friendly?57:kind==='jeep'?44:67,waypoint:lane,fireTimer:0,alive:true,step:0,phase:'advance',phaseTimer:0};this.units.push(u);return u;}
   override update(dt:number){
     if(this.state!=='playing')return;dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;
     if(this.reloadTime>0){this.reloadTime-=dt;if(this.reloadTime<=0)this.ammo=24;}
     const d=this.difficulty==='rookie'?.8:this.difficulty==='veteran'?1.2:1;
     this.spawnClock-=dt;
-    if(this.spawnClock<=0&&this.time<BREAKOUT_DURATION-10&&this.units.filter(u=>u.alive&&u.kind!=='friendlytruck'&&u.kind!=='pursuit').length<5){
-      const lane=[260,390,570,700][this.spawnCount%4],kind=this.spawnCount++%3===2?'jeep':'motorcycle';const u=this.add(kind,lane);u.speed*=d;
-      this.spawnClock=(this.time>90?5.8:7.5)/d;this.events.push({kind:kind==='jeep'?'jeepwarning':'bikewarning',x:u.x,y:u.y});
+    if(this.spawnClock<=0&&this.time<BREAKOUT_DURATION-10){
+      const kind=this.spawnCount%3===2?'jeep':'motorcycle';
+      const count=kind==='jeep'?1:this.spawnCount%2===0?2:3;
+      const active=this.units.filter(u=>u.alive&&u.kind!=='friendlytruck'&&u.kind!=='pursuit').length;
+      // Wait for enough room for the whole pack; never turn a group into single riders.
+      if(active+count<=5){
+        for(let i=0;i<count;i++){
+          const lane=[260,390,570,700][(this.spawnCount+i)%4],u=this.add(kind,lane);
+          u.speed*=d;u.y=90-i*26;u.step=i*.7;
+        }
+        this.spawnCount++;this.spawnClock=(this.time>90?5.8:7.5)/d;
+        this.events.push({kind:kind==='jeep'?'jeepwarning':'bikewarning',x:0,y:0});
+      }
     }
     this.trafficClock-=dt;
     if(this.trafficClock<=0&&this.time<105&&!this.units.some(u=>u.kind==='friendlytruck')){this.add('friendlytruck',this.released++%2?700:260);this.trafficClock=23;this.events.push({kind:'friendlytraffic',x:0,y:0});}

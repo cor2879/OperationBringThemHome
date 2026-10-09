@@ -9,7 +9,7 @@ import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
 import {drawDefenseField,drawStretcherTeam,drawConvoy,drawArmoredTransport} from './art/defense-render.ts';
-import {BreakoutMission,BREAKOUT_DURATION} from './breakout.ts';
+import {BreakoutMission,BREAKOUT_DURATION,PURSUIT_ARMOR} from './breakout.ts';
 import {drawRoad,drawRoadVehicle,drawConvoyTruck} from './art/breakout-render.ts';
 const breakoutChapter=new URLSearchParams(location.search).get('chapter')==='breakout';
 const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
@@ -75,8 +75,8 @@ if(breakoutChapter){
   document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 03<br><b>BREAKOUT</b><br>PLAYABLE PROTOTYPE';
   document.querySelector('.cabinet')!.setAttribute('aria-label','Convoy escape mission');
   overlay.querySelector('h2')!.textContent='KEEP THE CONVOY MOVING.';
-  overlay.querySelector('h2 + p')!.innerHTML='Reach the bridge checkpoint in 2½ minutes.<br>Protect your truck and destroy the final armored pursuer.<br>Motorcycles weave; jeeps and armor fire in bursts.<br>Orange roof markings and flags identify friendly trucks.<br>Losing three friendly trucks ends the escape.';
-  document.querySelector('.intel')!.innerHTML='<p><b>THE BREAKOUT</b><br>Man the rear gun of the rescue truck. Hold off the pursuit for two and a half minutes and clear the final armored vehicle before the bridge checkpoint.</p><p><b>THE PURSUIT</b><br>Motorcycles take one hit, jeeps take three, and armor takes ten. Red aiming lines warn of incoming shots. Green reload bars give you an opening. Reload your own gun between attacks.</p><p><b>FRIENDLY TRAFFIC</b><br>Orange roof panels and orange flags mark friendly convoy trucks. Let them pass safely before firing through their lane. Friendly fire is enabled; enemy bullets can hit them too. Three trucks lost ends the mission.</p>';
+  overlay.querySelector('h2 + p')!.innerHTML='Reach the bridge checkpoint in 2½ minutes.<br>Protect your truck and destroy the final armored pursuer.<br>Motorcycles arrive in packs; jeeps and armor fire in bursts.<br>Blue-and-cream trucks with orange flags are friendly.<br>Losing three friendly trucks ends the escape.';
+  document.querySelector('.intel')!.innerHTML='<p><b>THE BREAKOUT</b><br>Man the rear gun of the rescue truck. Hold off the pursuit for two and a half minutes and clear the final armored vehicle before the bridge checkpoint.</p><p><b>THE PURSUIT</b><br>Motorcycles arrive in packs of two or three and take one hit each. Jeeps take three hits; armored pursuers take eighteen. Red aiming lines warn of incoming shots. Green reload bars give you an opening. Reload your own gun between attacks.</p><p><b>FRIENDLY TRAFFIC</b><br>Blue-and-cream bodies, orange roof panels, and orange flags mark friendly convoy trucks. Let them pass safely before firing through their lane. Friendly fire is enabled; enemy bullets can hit them too. Three trucks lost ends the mission.</p>';
 }
 let scene:RescueScene;
 if(mobileLayout()){
@@ -292,7 +292,7 @@ ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'
       if(u.aimPoint){g.lineStyle(1,0xff7757,.65);g.lineBetween(u.x,u.y,u.aimPoint.x,u.aimPoint.y);}
       drawRoadVehicle(g,u);
       if(u.kind!=='friendlytruck'){
-        const maximum=u.kind==='pursuit'?10:u.kind==='jeep'?3:1;
+        const maximum=u.kind==='pursuit'?PURSUIT_ARMOR:u.kind==='jeep'?3:1;
         g.fillStyle(0x17251d);g.fillRect(u.x-25,u.y-55,50,5);g.fillStyle(0xe4b575);g.fillRect(u.x-25,u.y-55,50*u.hp/maximum,5);
         if(u.phase!=='advance'){const duration=u.phase==='reload'?(u.kind==='pursuit'?6:u.kind==='jeep'?4.5:3.8)/(m.difficulty==='rookie'?.8:m.difficulty==='veteran'?1.2:1):u.phase==='setup'?(u.kind==='pursuit'?1.4:.9):u.kind==='pursuit'?1.8:u.kind==='jeep'?.85:.16;
           g.fillStyle(u.phase==='reload'?0xadd58b:u.phase==='burst'?0xee7254:0xe4b575);g.fillRect(u.x-25,u.y-48,50*Math.max(0,(u.phaseTimer??0)/duration),3);
@@ -307,7 +307,7 @@ ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'
     this.hud.setText(`TRUCK ${m.health}%     FRIENDLIES SAFE ${m.rescued}     LOST ${m.lost} / 03
 ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'}     PURSUERS ${m.kills}     ${m.difficulty.toUpperCase()}`);
     this.escapeeStatus.setText(`CHECKPOINT · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`);
-    this.machinegunStatus.setVisible(true).setText(m.finalCleared?'FINAL PURSUIT CLEAR':m.finalStarted?'FINAL PURSUER · CLEAR THE ARMOR':m.armorWarning>0?'ARMORED PURSUIT INBOUND':armor?`ARMOR ${armor.hp}/10 · ${armor.phase==='reload'?'RELOADING':'CLOSING IN'}`:'ORANGE ROOFS · FRIENDLY TRAFFIC');
+    this.machinegunStatus.setVisible(true).setText(m.finalCleared?'FINAL PURSUIT CLEAR':m.finalStarted?'FINAL PURSUER · CLEAR THE ARMOR':m.armorWarning>0?'ARMORED PURSUIT INBOUND':armor?`ARMOR ${armor.hp}/${PURSUIT_ARMOR} · ${armor.phase==='reload'?'RELOADING':'CLOSING IN'}`:'BLUE + CREAM · FRIENDLY TRAFFIC');
     g.fillStyle(0x3b4d37);g.fillRect(640,45,300,5);g.fillStyle(0xe0b575);g.fillRect(640,45,300*Math.min(1,m.time/BREAKOUT_DURATION),5);
     if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(GUN.x,GUN.y,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
   }
