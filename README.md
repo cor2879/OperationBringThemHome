@@ -42,12 +42,14 @@ The build script copies the compiled site to root `index.html` and `assets/`. Co
 
 1. Playtest Rescue: balance, clarity, keyboard and touch handling.
 2. Replace temporary speech with original recorded, processed voice clips; add music.
-3. Assault, helicopter Escape, and final Showdown.
-4. Optional human opponent and controller support.
+3. Chapter 03: Breakout — defend the moving escape convoy.
+4. Chapter 04: The Confrontation — a knife-throwing showdown.
+5. Chapter 05: Extraction — escape aboard an attack helicopter.
+6. Optional human opponent and controller support.
 
 This is a new game inspired by classic home-computer action adventures. Code, graphics, and music are original. The casualty scream is the user-supplied `retroScream.mp3`, identified by the contributor as a sound effect from Beach Head II / Impossible Mission. Its inclusion does not establish redistribution rights. The source preserves the supplied MP3 bytes in `src/audio/retro-scream.ts`.
 
-## Chapter 03: Hold the Line
+## Chapter 02: Hold the Line
 
 Choose Hold the Line above the game, or open `?chapter=defense`. Defend an outpost until the convoy arrives at 150 seconds, then hold through twelve seconds of boarding. Lose if the gun position reaches zero health or three friendly stretcher teams die. Warnings precede rotating left, center and right attacks; sappers breach the gate and machine-gun crews telegraph a burst before reloading. COVER makes medics duck and cross at 35% speed, shielding them from enemy bullets but never friendly fire. GO restores full speed. Desktop and touch controls, shared ammunition, audio toggles and bundled radio recordings carry over from Rescue. Chapters have separate encounter rules and scenery; Rescue remains the default.
 
@@ -56,3 +58,13 @@ Defense tests cover wave warnings and sectors, friendly-fire attribution, duckin
 ### Armored reinforcements
 
 Hold the Line now has occasional armored transports: a three-second warning, eight-hit armor, three infantry unloaded one at a time, and a machine gun that locks onto an exposed stretcher team or the gun position before its burst. COVER protects medics as usual. Shooting the vehicle before unloading cancels remaining reinforcements; already deployed soldiers remain. The transport withdraws after 26 seconds on station, and another cannot approach until a 42-second gap after it leaves or is destroyed. No new transports start in the last fifteen seconds before convoy arrival. Transport infantry share the eight-hostile limit.
+
+## Campaign order
+
+1. The Rescue — playable prisoner crossings.
+2. Hold the Line — playable outpost defense.
+3. Breakout — planned convoy escape.
+4. The Confrontation — planned knife-throwing duel.
+5. Extraction — planned attack-helicopter escape.
+
+The opening assault is no longer a separate planned chapter. These labels establish the sequence; the three later chapters are not implemented yet.
