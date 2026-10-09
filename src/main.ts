@@ -374,7 +374,7 @@ document.addEventListener('keydown',e=>{
   if(e.target===$('touch-aim')&&(!confrontationChapter||['ArrowLeft','ArrowRight','Home','End'].includes(e.code)))return;
   if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
-  if(!e.repeat){if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
+  if(!e.repeat){if(scene.mission instanceof ConfrontationMission&&!scene.paused){if(['KeyW','KeyA','ArrowUp'].includes(e.code))scene.mission.setLane(scene.mission.player.lane-1);if(['KeyS','KeyD','ArrowDown'].includes(e.code))scene.mission.setLane(scene.mission.player.lane+1);}if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
 },true);
 document.addEventListener('keyup',e=>{if(!scene?.started||!controlKeys.has(e.code))return;e.preventDefault();e.stopPropagation();held.delete(e.code);},true);
 window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&scene)scene.pointerHeld=false;});
