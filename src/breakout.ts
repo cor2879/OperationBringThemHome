@@ -62,7 +62,7 @@ export class BreakoutMission extends RescueMission{
       if(u.kind==='motorcycle')u.x=u.waypoint+Math.sin(u.step*.9)*38;
       const station=u.kind==='motorcycle'?420:u.kind==='jeep'?355:285;
       if(u.y<station)u.y=Math.min(station,u.y+u.speed*dt);
-      if(u.phase==='advance'&&u.y>=200){u.phase='setup';u.phaseTimer=u.kind==='pursuit'?1.4:.9;u.aimPoint={...GUN};}
+      if(u.phase==='advance'&&(u.kind==='motorcycle'?u.y>300:u.y>=200)){u.phase='setup';u.phaseTimer=u.kind==='pursuit'?1.4:.9;u.aimPoint={...GUN};}
       if(u.phase==='advance')continue;
       u.phaseTimer=(u.phaseTimer??0)-dt;
       if(u.phase==='setup'&&u.phaseTimer<=0){u.phase='burst';u.phaseTimer=u.kind==='pursuit'?1.8:u.kind==='jeep'?.85:.16;u.fireTimer=0;}

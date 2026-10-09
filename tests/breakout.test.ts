@@ -38,3 +38,11 @@ test('shots crossing a truck side or rear damage it, while near misses and playe
 test('actual enemy bursts damage an unattended truck at every difficulty',()=>{
   for(const difficulty of ['rookie','regular','veteran'] as const){const m=new BreakoutMission(()=>.5,difficulty);advance(m,10);assert.ok(m.health<100,difficulty);}
 });
+
+test('motorcycles must pass halfway down the screen before setting up their first shot',()=>{
+  const m=new BreakoutMission(()=>.5),bike=vehicle('motorcycle',390,300);m.units=[bike];
+  advance(m,1);assert.equal(bike.phase,'advance');assert.equal(bike.aimPoint,undefined);assert.equal(m.bullets.length,0);
+  bike.y=301;m.update(.05);assert.equal(bike.phase,'setup');assert.deepEqual(bike.aimPoint,GUN);assert.equal(m.bullets.length,0);
+  advance(m,1);assert.equal(bike.phase,'burst');assert.ok(m.bullets.some(b=>b.side==='enemy'));
+  for(const kind of ['jeep','pursuit'] as const){const n=new BreakoutMission(),u=vehicle(kind,390,200);n.units=[u];n.update(.05);assert.equal(u.phase,'setup');}
+});
