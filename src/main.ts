@@ -62,12 +62,15 @@ if(mobileLayout()){
   overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
-  mission=new RescueMission();started=false;paused=false;
+  mission=new RescueMission();started=false;paused=false;ready=false;
   ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
-  preload(){this.load.image('battlefield',new URL('./art/battlefield-terrain.webp',import.meta.url).href);}
+  preload(){
+    const begin=$('begin') as HTMLButtonElement;begin.disabled=true;begin.textContent='LOADING FIELD…';
+    this.load.image('battlefield',new URL('./art/battlefield-terrain.webp',import.meta.url).href);
+  }
   create(){
     this.add.rectangle(480,300,960,600,0x293728);
     if(this.textures.exists('battlefield'))this.add.image(480,300,'battlefield').setDisplaySize(960,600);
@@ -89,10 +92,12 @@ class RescueScene extends Phaser.Scene{
     this.input.on('pointerup',()=>{this.pointerHeld=false;});
     this.game.canvas.tabIndex=0;this.game.canvas.setAttribute('aria-label','Operation Bring Them Home rescue game');
     this.draw();
+    this.ready=true;const begin=$('begin') as HTMLButtonElement;begin.disabled=false;begin.textContent='BEGIN OPERATION →';
   }
   focus(){this.game.canvas.focus({preventScroll:true});}
   aimAt(x:number,y:number){this.aim={x,y};this.mission.angle=Phaser.Math.Clamp(Math.atan2(y-GUN.y,x-GUN.x),-Math.PI+.08,-.08);}
   start(){
+    if(!this.ready)return;
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     touch.reset();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
