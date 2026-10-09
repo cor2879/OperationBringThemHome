@@ -11,7 +11,7 @@ import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
 import {drawDefenseField,drawStretcherTeam,drawConvoy,drawArmoredTransport} from './art/defense-render.ts';
 import {BreakoutMission,BREAKOUT_DURATION,PURSUIT_ARMOR} from './breakout.ts';
 import {drawRoad,drawRoadVehicle,drawConvoyTruck} from './art/breakout-render.ts';
-import {ConfrontationMission,DUEL_LANES} from './confrontation.ts';
+import {KNIFE_RECHARGE,ConfrontationMission,DUEL_LANES} from './confrontation.ts';
 import {drawConfrontation} from './art/confrontation-render.ts';
 const confrontationChapter=new URLSearchParams(location.search).get('chapter')==='confrontation';
 const breakoutChapter=new URLSearchParams(location.search).get('chapter')==='breakout';
@@ -86,13 +86,13 @@ if(confrontationChapter){
   document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 04<br><b>THE CONFRONTATION</b><br>PLAYABLE PROTOTYPE';
   document.querySelector('.cabinet')!.setAttribute('aria-label','Knife throwing duel');
   overlay.querySelector('h2')!.textContent='ONE LAST GUARD. ONE WAY OUT.';
-  overlay.querySelector('h2 + p')!.innerHTML='The convoy is clear. Face the commandant across the fortress gap.<br>Land five knife hits before he does. You have two minutes.<br>Move HIGH / MIDDLE / LOW to line up your throw.<br>Hold THROW + up/down to tilt the knife toward the next level.<br>A raised arm and red line warn of his next knife.<br>Duck briefly or change height. Release DUCK to recover stamina.';
+  overlay.querySelector('h2 + p')!.innerHTML='The convoy is clear. Face the commandant across the fortress gap.<br>Best two out of three rounds. Land five hits to win a round; each round lasts up to two minutes. Each fighter has three knives; one recharges every 2.5 seconds.<br>Move HIGH / MIDDLE / LOW to line up your throw.<br>Hold THROW + up/down to tilt the knife toward the next level.<br>A raised arm and red line warn of his next knife.<br>Duck briefly or change height. Release DUCK to recover stamina.';
   overlay.querySelector('small')!.textContent='W/S or ↑/↓: position · Space: throw · Hold C: duck';
   document.querySelector('.toolbar > span')!.innerHTML='<b>W/S or ↑/↓</b> move &nbsp; <b>SPACE</b> throw &nbsp; <b>C</b> duck &nbsp; <b>P</b> pause<br>Hold Space + up/down for angled throws. Release Space to move.';
   document.querySelector('.touch-aim label')!.textContent='POSITION · HIGH / LOW';
   $('touch-aim').setAttribute('aria-label','Duel position high or low');
   $('touch-fire').textContent='HOLD THROW';$('touch-cover').textContent='HOLD DUCK';$('touch-reload').hidden=true;
-  document.querySelector('.intel')!.innerHTML='<p><b>THE CONFRONTATION</b><br>The commandant guards the route to extraction. Face him across three levels of the fortress. Land five hits within two minutes to clear the way for the helicopter.</p><p><b>READ THE WIND-UP</b><br>Knives fly straight or at a slight angle. Hold up/down while throwing to tilt toward another level. He aims up or down from neighboring levels too. His raised arm and angled red line mark an incoming throw; his aim locks during wind-up. Change levels or duck as the knife arrives. He can dodge too, but winding up leaves him exposed.</p><p><b>TIME YOUR RESPONSE</b><br>You can throw while moving between levels; knives launch from your current height. Release DUCK before throwing. Duck stamina lasts just over a second and recovers when released. The slider changes height. Hold THROW while moving the slider for angled knives; release it to move again. Hold DUCK independently. Keyboard: W/S, Space and C.</p>';
+  document.querySelector('.intel')!.innerHTML='<p><b>THE CONFRONTATION</b><br>The commandant guards the route to extraction. Face him across three levels of the fortress. Win two out of three rounds to clear the way for the helicopter. Each round resets health, knives, and its two-minute timer.</p><p><b>READ THE WIND-UP</b><br>Knives fly straight or at a slight angle. Hold up/down while throwing to tilt toward another level. He aims up or down from neighboring levels too. His raised arm and angled red line mark an incoming throw; his aim locks during wind-up. Change levels or duck as the knife arrives. He can dodge too, but winding up leaves him exposed.</p><p><b>TIME YOUR RESPONSE</b><br>Each fighter has three knives. Spend them in a burst or save one for an opening; one knife recharges every 2.5 seconds. You can throw while moving between levels; knives launch from your current height. Release DUCK before throwing. Duck stamina lasts just over a second and recovers when released. The slider changes height. Hold THROW while moving the slider for angled knives; release it to move again. Hold DUCK independently. Keyboard: W/S, Space and C.</p>';
 }
 let scene:RescueScene;
 if(mobileLayout()){
@@ -157,6 +157,8 @@ class RescueScene extends Phaser.Scene{
     $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(confrontationChapter?'COMMANDANT DEFEATED':breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':confrontationChapter?'FACING THE COMMANDANT':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
+    if(e.kind==='duelround'||e.kind==='duelstart'){held.clear();coverPointers.clear();$('touch-cover').setAttribute('aria-pressed','false');touch.reset();firing=false;this.pointerHeld=false;($('touch-aim') as HTMLInputElement).value='50';updateTouchCover();if(e.kind==='duelround')tone(e.shooter==='player'?700:160,.2,'triangle',.04);}
+
     if(e.kind==='knifethrow'){tone(e.shooter==='player'?700:420,.08,'triangle',.045);}
     if(e.kind==='duelwarning'){tone(190,.05,'square',.02);}
     if(e.kind==='duelhit'){this.burst(e.x,e.y,0xffbd76,12);tone(90,.14,'sawtooth',.04);if(e.shooter==='player')this.callout('COMMANDANT','You will never leave this fortress!',false);else this.callout('CONTROL','Stay sharp. Watch his throwing arm.',false);}
@@ -229,7 +231,7 @@ class RescueScene extends Phaser.Scene{
     const won=this.mission.state==='won',m=this.mission;
     if(m instanceof ConfrontationMission){
       this.callout('CONTROL',won?'The route is clear. Get to the helicopter!':'Pull back. The operation is over.',true);
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE COMMANDANT IS DOWN.':'THE CONFRONTATION WAS LOST.'}</h2><p>${won?'The survivors are waiting. The helicopter is your last way home.':m.player.health<=0?'You were caught by the commandant’s knives.':'Time ran out. The route is still blocked.'}</p><div class="report"><span><b>${5-m.opponent.health}</b>HITS LANDED</span><span><b>${m.dodges}</b>KNIVES DODGED</span><span><b>${m.player.health}</b>HEALTH LEFT</span></div><button id="restart">DUEL AGAIN →</button><small>${won?'Next planned: Chapter 05 — Extraction.':'Watch his raised arm. Release DUCK to recover stamina.'}</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE COMMANDANT IS DOWN.':'THE CONFRONTATION WAS LOST.'}</h2><p>${won?'The survivors are waiting. The helicopter is your last way home.':m.player.health<=0?'You were caught by the commandant’s knives.':'Time ran out. The route is still blocked.'}</p><div class="report"><span><b>${m.playerRounds}–${m.enemyRounds}</b>ROUND SCORE</span><span><b>${m.dodges}</b>KNIVES DODGED</span><span><b>${m.player.health}</b>HEALTH LEFT</span></div><button id="restart">DUEL AGAIN →</button><small>${won?'Next planned: Chapter 05 — Extraction.':'Watch his raised arm. Release DUCK to recover stamina.'}</small>`;return;
     }
     this.callout('CONTROL',won?(breakoutChapter?'Checkpoint reached. The convoy is safe.':'Extraction confirmed. You brought them home.'):'Pull back. The operation is over.',true);
     if(breakoutChapter){
@@ -275,11 +277,11 @@ class RescueScene extends Phaser.Scene{
     if(m instanceof ConfrontationMission){
       drawConfrontation(g,m);
       this.hud.setText(`YOU ${m.player.health}/5                   DUCK STAMINA`);
-      this.truckHealth.setPosition(666,18).setText(`COMMANDANT ${m.opponent.health}/5`).setColor(m.opponent.flash>0?'#ff8870':'#e7e8cf');
+      this.truckHealth.setPosition(666,18).setFontSize(14).setText(`COMMANDANT ${m.opponent.health}/5 · KNIVES ${m.opponent.knifePool}`).setColor(m.opponent.flash>0?'#ff8870':'#e7e8cf');
       this.hud.setColor(m.player.flash>0?'#ff8870':'#e7e8cf');
-      this.machinegunStatus.setVisible(true).setText(m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY');
+      this.machinegunStatus.setVisible(true).setText(m.intermission>0?`ROUND ${m.round} ${m.roundWinner==='player'?'WON':'LOST'} · NEXT ROUND IN ${Math.ceil(m.intermission)}s`:`KNIVES ${m.player.knifePool}/3 · `+(m.player.knifePool===0?'RECHARGE '+(KNIFE_RECHARGE-m.player.knifeCharge).toFixed(1)+'s':m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY'));
       const duelSeconds=Math.ceil(m.remaining);
-      this.escapeeStatus.setText(`TIME ${Math.floor(duelSeconds/60)}:${String(duelSeconds%60).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
+      this.escapeeStatus.setPosition(610,562).setFontSize(12).setText(`ROUND ${m.round}/3 · YOU ${m.playerRounds} : AI ${m.enemyRounds}\nTIME ${Math.floor(duelSeconds/60)}:${String(duelSeconds%60).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
       for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}return;
     }
     if(m instanceof BreakoutMission){this.drawBreakout(m,g);return;}

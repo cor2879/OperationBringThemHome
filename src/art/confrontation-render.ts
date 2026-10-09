@@ -40,5 +40,8 @@ export function drawConfrontation(g:Ink,m:ConfrontationMission){
   for(const k of m.knives){g.save();g.translateCanvas(k.x,k.y);g.rotateCanvas(Math.atan2(k.vy,k.vx));r(g,k.side==='player'?0xf7dfa3:0xff967b,-8,-1.5,16,3);r(g,0xa28b65,-11,-3,4,6);g.restore();}
   r(g,0x101b1c,0,0,960,76);r(g,0x101b1c,0,560,960,40);
   for(let i=0;i<5;i++){r(g,i<m.player.health?0x83c6b4:0x33413c,21+i*28,49,22,8);r(g,i<m.opponent.health?0xe88266:0x413730,666+i*28,49,22,8);}
+  for(const [u,x,c] of [[m.player,21,0xf7dfa3],[m.opponent,666,0xff967b]] as const){
+    for(let i=0;i<3;i++){r(g,i<u.knifePool?c:0x33413c,x+i*28,65,17,3);r(g,i<u.knifePool?c:0x33413c,x+i*28-3,63,3,7);}
+  }
   r(g,0x3c493b,290,49,200,7);r(g,m.stamina>.25?0xe5b76d:0xe87b60,290,49,200*m.stamina,7);
 }
