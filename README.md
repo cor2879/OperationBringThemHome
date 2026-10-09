@@ -14,6 +14,10 @@ Cover twelve escaping prisoners with a defensive gun. Bring at least eight to th
 - Player-caused prisoner deaths trigger “Hey! Don’t shoot me!” instead of the scream. Radio lines wait for the scream to finish. Turning VOICE ON plays a radio check. Voices are independent of the SOUND toggle; pause, restart, and VOICE OFF clear waiting dialogue. Original dialogue clips are generated offline with FFmpeg/Flite using `python scripts/generate-radio-voices.py`.
 - Losing browser focus pauses the mission. Resume explicitly to continue.
 
+## Visual direction
+
+The first pixel-art pass uses an original generated terrain layer (`src/art/battlefield-terrain.webp`) inspired by the approved concept sheet, with code-drawn scenery and animated pixel sprites in `src/art/render.ts`. The route, collision walls, hit targets and game rules retain their existing coordinates. Orange escapees, red enemy accents, distinct dogs, two-person gun crews, recessed sandbag shelters and an open extraction van keep the action readable. The second crew member is decorative; the squad remains one target. A terrain loading failure falls back to a plain field with the same scenery and sprites.
+
 ## Development
 ### Squad-command field test
 

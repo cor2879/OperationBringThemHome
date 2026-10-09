@@ -6,6 +6,7 @@ import { TouchControls, touchAngle } from './controls.ts';
 import radioClips from './audio/radio-clips.ts';
 import { RadioVoice } from './audio/radio.ts';
 import { playDogBark } from './audio/dog.ts';
+import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -66,7 +67,10 @@ class RescueScene extends Phaser.Scene{
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
+  preload(){this.load.image('battlefield',new URL('./art/battlefield-terrain.webp',import.meta.url).href);}
   create(){
+    this.add.rectangle(480,300,960,600,0x293728);
+    if(this.textures.exists('battlefield'))this.add.image(480,300,'battlefield').setDisplaySize(960,600);
     const field=this.add.graphics();this.drawField(field);
     this.ink=this.add.graphics();
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
@@ -153,67 +157,36 @@ class RescueScene extends Phaser.Scene{
   }
   burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
   drawField(g:PhaserType.GameObjects.Graphics){
-    g.fillStyle(0x293728);g.fillRect(0,0,960,600);
-    // Deterministic field texture: terrain details remain still during combat.
-    let seed=47;const rand=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-    for(let i=0;i<1600;i++){const x=rand()*960,y=rand()*600;g.fillStyle(i%2?0x344431:0x223121,.6);g.fillRect(x,y,2+rand()*5,2);}
-    g.fillStyle(0x1c2822);g.fillRect(0,70,180,130);g.fillStyle(0x606958);g.fillRect(15,81,157,13);g.fillRect(15,81,12,116);g.fillRect(15,184,160,13);
-    for(let x=32;x<164;x+=12){g.lineStyle(1,0xa1ac8a,.6);g.lineBetween(x,94,x,184);}g.fillStyle(0x111e19);g.fillRect(79,131,104,32);
-    this.add.text(30,111,'HOLDING\nCOMPOUND',{fontFamily:'monospace',fontSize:'12px',color:'#a8b398'});
-    g.lineStyle(30,0x596047,.5);g.beginPath();g.moveTo(ROUTE[0].x,ROUTE[0].y);ROUTE.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.strokePath();
-    g.lineStyle(2,0xc1b680,.35);
-    for(let i=1;i<ROUTE.length;i++){const a=ROUTE[i-1],b=ROUTE[i],d=Math.hypot(b.x-a.x,b.y-a.y);for(let t=0;t<d;t+=24){g.lineBetween(a.x+(b.x-a.x)*t/d,a.y+(b.y-a.y)*t/d,a.x+(b.x-a.x)*Math.min(t+10,d)/d,a.y+(b.y-a.y)*Math.min(t+10,d)/d);}}
-    for(const w of WALLS){g.fillStyle(0x101a16,.5);g.fillRect(w.x+5,w.y+8,w.w,w.h);g.fillStyle(0x92906b);g.fillRect(w.x,w.y,w.w,w.h);for(let x=w.x;x<w.x+w.w;x+=23){g.lineStyle(2,0x5c624a);g.lineBetween(x,w.y,x,w.y+w.h);}}
-    this.add.text(255,168,'COVER A',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});this.add.text(550,265,'COVER B',{fontFamily:'monospace',fontSize:'11px',color:'#b7b992'});
-    SHELTERS.forEach((s,i)=>this.add.text(s.x-32,s.y+29,'SHELTER '+(i?'B':'A'),{fontFamily:'monospace',fontSize:'10px',color:'#d9c08f'}));
-    // Extraction truck and perimeter.
-    g.fillStyle(0x19261c);g.fillRect(818,431,125,64);g.lineStyle(2,0xa6ba82);g.strokeRect(818,431,125,64);
-    g.fillStyle(0x586d43);g.fillRect(862,436,62,45);g.fillStyle(0x6f8551);g.fillRect(925,446,20,35);g.fillStyle(0xa9c5bb);g.fillRect(928,449,13,10);g.fillStyle(0x0c1510);g.fillRect(873,478,13,9);g.fillRect(927,478,13,9);
-    this.add.text(824,408,'EXTRACTION →',{fontFamily:'monospace',fontSize:'13px',color:'#c2dca2'});
-    // Hostile fortification.
-    g.fillStyle(0x1a251e);g.fillRect(830,99,130,148);g.lineStyle(2,0x55614a);g.strokeRect(830,99,130,148);g.fillStyle(0x584d40);g.fillRect(851,124,95,49);g.fillStyle(0x1b2018);g.fillRect(864,133,65,15);
-    this.add.text(835,77,'HOSTILE SECTOR',{fontFamily:'monospace',fontSize:'11px',color:'#c29677'});
-    // Player gun pit.
-    g.fillStyle(0x131d18);g.fillEllipse(480,551,119,68);g.lineStyle(12,0x7a7c58);g.strokeEllipse(480,555,124,64);
-    g.fillStyle(0x18241d,.95);g.fillRect(0,0,960,62);g.lineStyle(1,0x7a8e62);g.lineBetween(0,62,960,62);
-    // A subtle scanline treatment.
-    for(let y=0;y<600;y+=4){g.fillStyle(0x000000,.055);g.fillRect(0,y,960,1);}
+    drawBattlefield(g);
+    const label=(x:number,y:number,text:string,color='#e0d6a5')=>this.add.text(x,y,text,{fontFamily:'monospace',fontSize:'10px',color,backgroundColor:'#17231c',padding:{x:4,y:2}});
+    label(28,74,'HOLDING COMPOUND');label(834,78,'HOSTILE SECTOR','#e0aa8a');
+    label(249,170,'COVER A');label(549,266,'COVER B');
+    SHELTERS.forEach((s,i)=>label(s.x-33,s.y+27,'SHELTER '+(i?'B':'A')));
+    label(825,405,'EXTRACTION →','#d2e3a8');
   }
   drawUnit(g:PhaserType.GameObjects.Graphics,u:Unit){
-    const x=Math.round(u.x),y=Math.round(u.y),step=Math.sin(u.step)>0?2:-2;
-    if(u.kind==='dog'){
-      const f=u.facing??1;
-      g.fillStyle(0x0a130e,.5);g.fillEllipse(x,y+8,26,7);
-      g.fillStyle(0xb38a50);g.fillRect(x-10,y-5,18,9);g.fillRect(x+(f>0?6:-12),y-10,7,9);
-      g.fillStyle(0x332b20);g.fillRect(x+(f>0?7:-10),y-13,3,5);g.fillRect(x+(f>0?12:-16),y-5,5,3);
-      g.fillStyle(0xc76648);g.fillRect(x+(f>0?5:-8),y-6,3,7);
-      g.fillStyle(0x715637);g.fillRect(x-8,y+3,3,5+step);g.fillRect(x+4,y+3,3,5-step);
-      g.lineStyle(3,0xb38a50);g.lineBetween(x-f*9,y-3,x-f*16,y-8);
-      g.lineStyle(1,0xffbd70,.75);g.strokeCircle(x,y,18);return;
-    }
+    const x=Math.round(u.x),y=Math.round(u.y);
     if(u.kind==='machinegun'){
       const color=u.phase==='reload'?0xa9d989:u.phase==='burst'?0xff694c:0xffbd70;
-      g.lineStyle(2,color);g.strokeCircle(x,y,21);
+      g.lineStyle(2,color,.8);g.strokeCircle(x,y,25);
       if(u.phase!=='advance'){
-        g.fillStyle(0x101b16,.9);g.fillRect(x-31,y-35,62,9);
+        g.fillStyle(0x101b16,.9);g.fillRect(x-31,y-38,62,8);
         const duration=u.phase==='reload'?(this.mission.difficulty==='rookie'?9.5:this.mission.difficulty==='veteran'?7.5:8.5):u.phase==='burst'?2.4:1.5;
-        g.fillStyle(color);g.fillRect(x-30,y-34,60*Math.max(0,(u.phaseTimer??0)/duration),7);
-        g.lineStyle(3,0x172119);g.lineBetween(x+5,y+2,x+19,y+12);g.lineBetween(x+5,y+2,x-3,y+13);g.lineBetween(x,y,x+25,y);
+        g.fillStyle(color);g.fillRect(x-30,y-37,60*Math.max(0,(u.phaseTimer??0)/duration),6);
       }
     }
-    if(u.aimPoint){g.lineStyle(1,0xff7654,.55);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);g.lineStyle(2,0xffbd70);g.strokeCircle(x,y,19+Math.sin(this.tick*16)*3);}
-    if(u.shelter!==undefined){g.fillStyle(0xe9a153);g.fillRect(x-6,y-3,12,8);g.fillStyle(0xd3b993);g.fillRect(x-3,y-8,6,5);return;}
-    g.fillStyle(0x0a130e,.45);g.fillEllipse(x+2,y+10,18,7);
-    const uniform=u.kind==='prisoner'?0xe9a153:u.kind==='sapper'?0x866d53:0x6b7856;
-    g.fillStyle(0xd3b993);g.fillRect(x-3,y-12,6,5);g.fillStyle(uniform);g.fillRect(x-5,y-6,10,10);g.fillRect(x-8,y-4+step,3,8);g.fillRect(x+5,y-4-step,3,8);
-    g.fillStyle(0x242d20);g.fillRect(x-5,y+4,4,7+step);g.fillRect(x+1,y+4,4,7-step);
-    if(u.kind!=='prisoner'){g.fillStyle(0xc76648);g.fillRect(x-5,y-14,10,4);g.fillStyle(0x1c241d);g.fillRect(x-7,y-1,14,3);if(u.kind==='sapper'){g.fillStyle(0xc9ac6b);g.fillRect(x-4,y-3,8,5);}}
-    if(u.hp===1&&u.kind!=='prisoner'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-19,7,2);}
+    if(u.aimPoint){g.lineStyle(1,0xff7654,.65);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);}
+    drawCharacter(g,u);
+    if(u.hp===1&&u.kind!=='prisoner'&&u.kind!=='dog'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-29,7,2);}
   }
   draw(){
     const m=this.mission,g=this.ink;g.clear();
-    SHELTERS.forEach((s,i)=>{const count=m.units.filter(u=>u.shelter===i).length;g.fillStyle(0x16271e,.9);g.fillRoundedRect(s.x-32,s.y-17,64,34,6);g.lineStyle(2,m.coverOrdered?0xe5aa63:0x8fa67a);g.strokeRoundedRect(s.x-32,s.y-17,64,34,6);for(let slot=0;slot<s.capacity;slot++){g.fillStyle(slot<count?0xe9a153:0x52614a);g.fillRect(s.x-21+slot*17,s.y+19,12,5);}});
-    m.units.forEach(u=>this.drawUnit(g,u));
+    SHELTERS.forEach((s,i)=>{
+      const occupied=m.units.some(u=>u.shelter===i);
+      g.lineStyle(1,m.coverOrdered?0xe5aa63:0x8fa67a,.8);g.strokeRect(s.x-27,s.y-12,54,31);
+      g.fillStyle(occupied?0xe9a153:0x52614a);g.fillRect(s.x-6,s.y+21,12,3);
+    });
+    [...m.units].sort((a,b)=>a.y-b.y).forEach(u=>this.drawUnit(g,u));
     const escapee=m.units.find(u=>u.kind==='prisoner');
     g.fillStyle(0x101b16,.9);g.fillRect(601,565,345,25);
     const dog=m.units.find(u=>u.kind==='dog');
@@ -227,8 +200,7 @@ class RescueScene extends Phaser.Scene{
       this.machinegunStatus.setText(label).setVisible(true).setColor(phase==='reload'?'#a9d989':'#ffbd70');
     }else this.machinegunStatus.setVisible(false);
     m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.012,b.y-b.vy*.012);});
-    g.fillStyle(0x879071);g.fillCircle(GUN.x,GUN.y,18);g.lineStyle(11,0x222c23);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*38,GUN.y+Math.sin(m.angle)*38);g.lineStyle(5,0xc1b98e);g.lineBetween(GUN.x,GUN.y,GUN.x+Math.cos(m.angle)*40,GUN.y+Math.sin(m.angle)*40);
-    g.fillStyle(0xbeab83);g.fillRect(470,546,20,15);g.fillStyle(0x283c27);g.fillRect(474,541,12,8);
+    drawPlayerGun(g,m.angle);
     if(this.started&&m.state==='playing'){
       const x=this.aim.x,y=Math.min(this.aim.y,515);g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(x,y,14);g.lineBetween(x-21,y,x-7,y);g.lineBetween(x+7,y,x+21,y);g.lineBetween(x,y-21,x,y-7);g.lineBetween(x,y+7,x,y+21);
     }
