@@ -86,3 +86,9 @@ Knife reserves: both fighters start with three knives, spent only when a throw l
 Match format: best two out of three rounds. Five hits win a round; a two-minute timeout awards it to the AI. Three-second intermissions freeze combat, then reset health, knife reserves, stamina, positions and the timer. The HUD shows round score; the chapter ends only when either side wins twice.
 
 Defeated duelists tumble into the fortress pit with the bundled retro scream on every knockout. Final results wait for the fall to finish; timeouts do not trigger a death animation. The Commandant alternates original fortress dialogue with “You can’t hurt meeee!” on surviving player hits.
+
+## Chapter 05 — Extraction
+
+Open `?chapter=extraction` for a top-down helicopter shooter. Fly down the river for 100 seconds and destroy the command gunship to reach the landing zone. WASD/arrows fly in four directions, Space fires unlimited twin cannons, and R/X launches a rocket. Hold mouse click to steer and fire, or use the touch flight pad with independent FIRE and ROCKET buttons. The helicopter has 100% armor. Enemy fire deals 6% damage (gunship 8%); brief hit protection prevents overlapping bullets draining the whole health bar.
+
+Convoys, tanks, gunboats and fighter pairs telegraph aimed fire. Three rockets deal splash damage and recharge one every eight seconds. Repair crates restore 18% armor; rocket crates replenish two rockets. At 72 seconds the command gunship arrives, sweeps the river, and widens its salvos below half health. Clear it and finish the route; failure to clear it within 130 seconds ends the flight. All five chapters are now playable independently.
