@@ -9,6 +9,9 @@ import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
 import {drawDefenseField,drawStretcherTeam,drawConvoy,drawArmoredTransport} from './art/defense-render.ts';
+import {BreakoutMission,BREAKOUT_DURATION} from './breakout.ts';
+import {drawRoad,drawRoadVehicle,drawConvoyTruck} from './art/breakout-render.ts';
+const breakoutChapter=new URLSearchParams(location.search).get('chapter')==='breakout';
 const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
 declare const Phaser: typeof PhaserType;
 
@@ -67,13 +70,21 @@ if(defenseChapter){
   document.querySelector('.squad-controls span')!.innerHTML='Hold C / COVER: medics duck and move slowly. Release: GO!<br>Orange stretcher teams are friendly. Enemy aiming lines warn of shots.';
   document.querySelector('.intel')!.innerHTML='<p><b>HOLD THE LINE</b><br>The rescued prisoners are waiting inside the outpost. Keep the gun position intact until the convoy arrives, then defend the twelve-second boarding window.</p><p><b>CHOOSE YOUR TARGETS</b><br>Infantry advance into firing range, sappers rush the gate, and gun crews alternate bursts and reloads. Every wave gives a warning before entering from a new direction. Occasional armored transports take eight hits, drop off three infantry, and aim their machine gun at exposed medics or your position. Destroy them before they unload!</p><p><b>PROTECT THE CROSSING</b><br>Stretcher teams carry wounded people from the left shelter to the aid station. COVER shields them from enemy shots while slowing their movement. Your own bullets can still hit them. Losing three teams ends the mission.</p>';
 }
+if(breakoutChapter){
+  document.body.classList.add('breakout-chapter');
+  document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 03<br><b>BREAKOUT</b><br>PLAYABLE PROTOTYPE';
+  document.querySelector('.cabinet')!.setAttribute('aria-label','Convoy escape mission');
+  overlay.querySelector('h2')!.textContent='KEEP THE CONVOY MOVING.';
+  overlay.querySelector('h2 + p')!.innerHTML='Reach the bridge checkpoint in 2½ minutes.<br>Protect your truck and destroy the final armored pursuer.<br>Motorcycles weave; jeeps and armor fire in bursts.<br>Orange roof markings and flags identify friendly trucks.<br>Losing three friendly trucks ends the escape.';
+  document.querySelector('.intel')!.innerHTML='<p><b>THE BREAKOUT</b><br>Man the rear gun of the rescue truck. Hold off the pursuit for two and a half minutes and clear the final armored vehicle before the bridge checkpoint.</p><p><b>THE PURSUIT</b><br>Motorcycles take one hit, jeeps take three, and armor takes ten. Red aiming lines warn of incoming shots. Green reload bars give you an opening. Reload your own gun between attacks.</p><p><b>FRIENDLY TRAFFIC</b><br>Orange roof panels and orange flags mark friendly convoy trucks. Let them pass safely before firing through their lane. Friendly fire is enabled; enemy bullets can hit them too. Three trucks lost ends the mission.</p>';
+}
 let scene:RescueScene;
 if(mobileLayout()){
-  if(!defenseChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
-  overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
+  if(!defenseChapter&&!breakoutChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
+  overlay.querySelector('small')!.textContent=breakoutChapter?'Left thumb: aim slider · Right thumb: hold FIRE / tap RELOAD':'Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
-  mission:RescueMission=defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
+  mission:RescueMission=breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
   ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
@@ -110,9 +121,9 @@ class RescueScene extends Phaser.Scene{
   start(){
     if(!this.ready)return;
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
-    this.mission=defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
+    this.mission=breakoutChapter?new BreakoutMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     touch.reset();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
-    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
+    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
@@ -126,9 +137,19 @@ class RescueScene extends Phaser.Scene{
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
   updateStatus(){
-    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?'EXTRACTION COMPLETE':this.mission.state==='lost'?'OPERATION LOST':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
+    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
+    if(e.kind==='bikewarning')this.callout('DRIVER',"Motorcycles! They're gaining on us!");
+    if(e.kind==='jeepwarning')this.callout('CONTROL','Armed jeep closing in!');
+    if(e.kind==='friendlytraffic')this.callout('DRIVER','Friendly truck! Watch your fire!',true);
+    if(e.kind==='pursuitwarning')this.callout('CONTROL','Armored pursuit! Take it out!',true);
+    if(e.kind==='bridgewarning')this.callout('DRIVER','Bridge ahead! Almost home!',true);
+    if(e.kind==='finalpursuit')this.callout('CONTROL','One last armored pursuer! Clear it before the bridge!',true);
+    if(e.kind==='pursuitclear')this.callout('DRIVER','Pursuit cleared! Head for the checkpoint!',true);
+    if(e.kind==='trafficclear')tone(620,.1,'triangle');
+    if(e.kind==='trafficloss'){this.burst(e.x,e.y,0xffa451,25);this.callout('CONTROL',e.shooter==='player'?"Hey! Don't shoot me!":'Friendly truck hit! Protect the convoy!',true);}
+    if(e.kind==='vehicledestroyed'){this.burst(e.x,e.y,0xffa451,20);tone(65,.22,'sawtooth',.045);}
     if(e.kind==='armorwarning')this.callout('CONTROL','Armored transport inbound! Stop the reinforcements!',true);
     if(e.kind==='armordestroyed'){this.burst(e.x,e.y,0xffa451,35);tone(55,.4,'sawtooth',.07);this.callout('CONTROL','Transport destroyed!',true);}
     if(e.kind==='defensewarning')this.callout('CONTROL',['Hostiles approaching from the left!','Hostiles approaching from the center!','Hostiles approaching from the right!'][e.x],true);
@@ -174,7 +195,10 @@ class RescueScene extends Phaser.Scene{
   finish(){
     held.clear();touch.reset();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
-    this.callout('CONTROL',won?'Extraction confirmed. You brought them home.':'Pull back. The operation is over.',true);
+    this.callout('CONTROL',won?(breakoutChapter?'Checkpoint reached. The convoy is safe.':'Extraction confirmed. You brought them home.'):'Pull back. The operation is over.',true);
+    if(breakoutChapter){
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY BROKE THROUGH.':'THE ESCAPE WAS STOPPED.'}</h2><p>${won?'The survivors reached the bridge checkpoint.':m.health<=0?'Your rescue truck was disabled.':m.lost>=3?'Three friendly trucks were lost.':'The final armored pursuer reached the bridge.'}</p><div class="report"><span><b>${m.rescued}</b>TRUCKS SAFE</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>PURSUERS</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Next planned: Chapter 04 — The Confrontation.':'Let friendly trucks clear your aim. Use enemy reload windows.'}</small>`;return;
+    }
     if(defenseChapter){
       overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY IS AWAY.':'THE LINE WAS BROKEN.'}</h2><p>${won?'The survivors are heading home. You held the outpost.':m.health<=0?'The gun position was overrun.':'Three stretcher teams were lost.'}</p><div class="report"><span><b>${m.rescued}</b>TEAMS SAFE</span><span><b>${m.lost}</b>TEAMS LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>Prioritize sappers. Reload while enemy crews reload.</small>`;return;
     }
@@ -182,6 +206,7 @@ class RescueScene extends Phaser.Scene{
   }
   burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
   drawField(g:PhaserType.GameObjects.Graphics){
+    if(breakoutChapter)return;
     if(defenseChapter){
       drawDefenseField(g);
       const label=(x:number,y:number,text:string)=>this.add.text(x,y,text,{fontFamily:'monospace',fontSize:'11px',color:'#e0d6a5',backgroundColor:'#17231c',padding:{x:4,y:3}});
@@ -210,7 +235,8 @@ class RescueScene extends Phaser.Scene{
     if(u.hp===1&&u.kind!=='prisoner'&&u.kind!=='dog'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-29,7,2);}
   }
   draw(){
-    const m=this.mission,g=this.ink;g.clear();
+    const m=this.mission,g=this.ink;g.clear();this.radio.setVisible(this.radioTime>0);
+    if(m instanceof BreakoutMission){this.drawBreakout(m,g);return;}
     if(m instanceof DefenseMission){this.drawDefense(m,g);return;}
     SHELTERS.forEach((s,i)=>{
       const occupied=m.units.some(u=>u.shelter===i);
@@ -258,6 +284,32 @@ ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'
     this.machinegunStatus.setVisible(true).setText(m.armorWarning>0?'ARMORED TRANSPORT INBOUND':armor?`ARMOR ${armor.hp}/8 · ${armor.phase==='unload'?'UNLOADING':armor.phase==='reload'?'RELOADING':armor.phase==='retreat'?'WITHDRAWING':armor.phase==='advance'?'APPROACHING':'GUN ACTIVE'}`:m.warning?['LEFT FLANK INBOUND','CENTER INBOUND','RIGHT FLANK INBOUND'][m.warning.sector]:crew?crew.phase==='reload'?'ENEMY GUN RELOADING':'ENEMY GUN · CLEAR THE CREW':m.coverOrdered?'MEDICS DUCKING · SLOW CROSSING':'WATCH FOR FRIENDLY CROSSINGS').setColor(crew?.phase==='reload'?'#a9d989':'#ffbd70');
     g.fillStyle(0x394b35);g.fillRect(640,45,300,5);g.fillStyle(0xd7b374);g.fillRect(640,45,300*Math.min(1,m.time/(CONVOY_ETA+BOARDING_TIME)),5);
     if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(480,550,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
+  }
+
+  drawBreakout(m:BreakoutMission,g:PhaserType.GameObjects.Graphics){
+    drawRoad(g,m.time);
+    [...m.units].sort((a,b)=>a.y-b.y).forEach(u=>{
+      if(u.aimPoint){g.lineStyle(1,0xff7757,.65);g.lineBetween(u.x,u.y,u.aimPoint.x,u.aimPoint.y);}
+      drawRoadVehicle(g,u);
+      if(u.kind!=='friendlytruck'){
+        const maximum=u.kind==='pursuit'?10:u.kind==='jeep'?3:1;
+        g.fillStyle(0x17251d);g.fillRect(u.x-25,u.y-55,50,5);g.fillStyle(0xe4b575);g.fillRect(u.x-25,u.y-55,50*u.hp/maximum,5);
+        if(u.phase!=='advance'){const duration=u.phase==='reload'?(u.kind==='pursuit'?6:u.kind==='jeep'?4.5:3.8)/(m.difficulty==='rookie'?.8:m.difficulty==='veteran'?1.2:1):u.phase==='setup'?(u.kind==='pursuit'?1.4:.9):u.kind==='pursuit'?1.8:u.kind==='jeep'?.85:.16;
+          g.fillStyle(u.phase==='reload'?0xadd58b:u.phase==='burst'?0xee7254:0xe4b575);g.fillRect(u.x-25,u.y-48,50*Math.max(0,(u.phaseTimer??0)/duration),3);
+        }
+      }
+    });
+    m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.014,b.y-b.vy*.014);});
+    drawConvoyTruck(g,m.angle);
+    if(this.started&&m.state==='playing'){g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(this.aim.x,Math.min(this.aim.y,515),14);}
+    for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
+    const remaining=Math.ceil(m.remaining),armor=m.units.find(u=>u.kind==='pursuit');
+    this.hud.setText(`TRUCK ${m.health}%     FRIENDLIES SAFE ${m.rescued}     LOST ${m.lost} / 03
+${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'}     PURSUERS ${m.kills}     ${m.difficulty.toUpperCase()}`);
+    this.escapeeStatus.setText(`CHECKPOINT · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`);
+    this.machinegunStatus.setVisible(true).setText(m.finalCleared?'FINAL PURSUIT CLEAR':m.finalStarted?'FINAL PURSUER · CLEAR THE ARMOR':m.armorWarning>0?'ARMORED PURSUIT INBOUND':armor?`ARMOR ${armor.hp}/10 · ${armor.phase==='reload'?'RELOADING':'CLOSING IN'}`:'ORANGE ROOFS · FRIENDLY TRAFFIC');
+    g.fillStyle(0x3b4d37);g.fillRect(640,45,300,5);g.fillStyle(0xe0b575);g.fillRect(640,45,300*Math.min(1,m.time/BREAKOUT_DURATION),5);
+    if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(GUN.x,GUN.y,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
   }
 
 }

@@ -63,8 +63,12 @@ Hold the Line now has occasional armored transports: a three-second warning, eig
 
 1. The Rescue — playable prisoner crossings.
 2. Hold the Line — playable outpost defense.
-3. Breakout — planned convoy escape.
+3. Breakout — playable convoy escape.
 4. The Confrontation — planned knife-throwing duel.
 5. Extraction — planned attack-helicopter escape.
 
-The opening assault is no longer a separate planned chapter. These labels establish the sequence; the three later chapters are not implemented yet.
+The opening assault is no longer a separate planned chapter. These labels establish the sequence; the final two chapters are not implemented yet.
+
+## Chapter 03: Breakout
+
+Open `?chapter=breakout` or choose the third chapter above the game. Man the rear gun of a rescue truck on a scrolling road. Survive 150 seconds and destroy the final armored pursuer, which joins at 120 seconds. Losing all truck health, three friendly trucks, or reaching the bridge with the final pursuer alive ends the mission. Motorcycles weave and take one hit, jeeps take three hits, and armored pursuers take ten. Enemy shots have visible aiming tells followed by bursts and green reload bars. Friendly vehicles have orange roof panels and flags, leave through roadside exits, and can be hit by either side. Enemy spawns are bounded; one armored pursuer and one friendly truck at a time. Desktop aim/fire/reload/pause and mobile slider/FIRE/RELOAD carry over. Cover orders do not apply to the moving convoy. Pause freezes road motion along with the simulation. Bundled synthesized radio dialogue announces traffic, pursuit and the bridge.

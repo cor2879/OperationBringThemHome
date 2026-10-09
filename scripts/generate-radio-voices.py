@@ -7,6 +7,16 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LINES = {
+    'Convoy moving! Keep them off our tail!': 'rms',
+    "Motorcycles! They're gaining on us!": 'kal',
+    'Armed jeep closing in!': 'rms',
+    'Friendly truck! Watch your fire!': 'kal',
+    'Armored pursuit! Take it out!': 'rms',
+    'Bridge ahead! Almost home!': 'kal',
+    'One last armored pursuer! Clear it before the bridge!': 'rms',
+    'Pursuit cleared! Head for the checkpoint!': 'kal',
+    'Friendly truck hit! Protect the convoy!': 'rms',
+    'Checkpoint reached. The convoy is safe.': 'rms',
     'Armored transport inbound! Stop the reinforcements!': 'rms',
     'Transport destroyed!': 'rms',
     'Hold the outpost. The convoy is on its way.': 'rms',
