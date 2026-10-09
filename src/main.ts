@@ -301,6 +301,7 @@ ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'
     });
     m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.014,b.y-b.vy*.014);});
     drawConvoyTruck(g,m.angle);
+    if(m.damageFlash>0){g.lineStyle(4,0xff7254,m.damageFlash/.3);g.strokeRect(GUN.x-35,GUN.y-45,70,91);}
     if(this.started&&m.state==='playing'){g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(this.aim.x,Math.min(this.aim.y,515),14);}
     for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
     const remaining=Math.ceil(m.remaining),armor=m.units.find(u=>u.kind==='pursuit');

@@ -3,16 +3,29 @@ import {sweptDistance} from './defense.ts';
 export const BREAKOUT_DURATION=150;
 export const FINAL_PURSUIT_TIME=120;
 export const PURSUIT_ARMOR=18;
+// The whole visible truck body is vulnerable, including its roof and side panels.
+export const PLAYER_TRUCK={left:GUN.x-35,right:GUN.x+35,top:GUN.y-45,bottom:GUN.y+46};
+function truckImpact(from:Point,to:Point):Point|undefined{
+  let enter=0,exit=1;
+  for(const [start,end,low,high] of [[from.x,to.x,PLAYER_TRUCK.left,PLAYER_TRUCK.right],[from.y,to.y,PLAYER_TRUCK.top,PLAYER_TRUCK.bottom]]){
+    const delta=end-start;
+    if(delta===0){if(start<low||start>high)return;continue;}
+    const a=(low-start)/delta,b=(high-start)/delta;
+    enter=Math.max(enter,Math.min(a,b));exit=Math.min(exit,Math.max(a,b));
+    if(enter>exit)return;
+  }
+  return {x:from.x+(to.x-from.x)*enter,y:from.y+(to.y-from.y)*enter};
+}
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
 export class BreakoutMission extends RescueMission{
   private rng:()=>number;private serial=0;private spawnClock=4;private trafficClock=12;private armorClock=52;private bridgeCalled=false;private spawnCount=0;private finalId=-1;
-  armorWarning=0;finalStarted=false;finalCleared=false;
+  armorWarning=0;finalStarted=false;finalCleared=false;damageFlash=0;
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){super(random,difficulty);this.rng=random;}
   get remaining(){return Math.max(0,BREAKOUT_DURATION-this.time);}
   override commandCover(_hold:boolean){return false;}
   private add(kind:Unit['kind'],lane:number){const heavy=kind==='pursuit',friendly=kind==='friendlytruck';const u:Unit={id:this.serial++,kind,x:lane,y:90,hp:heavy?PURSUIT_ARMOR:friendly?2:kind==='jeep'?3:1,speed:heavy?34:friendly?57:kind==='jeep'?44:67,waypoint:lane,fireTimer:0,alive:true,step:0,phase:'advance',phaseTimer:0};this.units.push(u);return u;}
   override update(dt:number){
-    if(this.state!=='playing')return;dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;
+    if(this.state!=='playing')return;dt=Math.min(.05,Math.max(0,dt));this.time+=dt;this.fireCooldown-=dt;this.damageFlash=Math.max(0,this.damageFlash-dt);
     if(this.reloadTime>0){this.reloadTime-=dt;if(this.reloadTime<=0)this.ammo=24;}
     const d=this.difficulty==='rookie'?.8:this.difficulty==='veteran'?1.2:1;
     this.spawnClock-=dt;
@@ -63,11 +76,12 @@ export class BreakoutMission extends RescueMission{
       // Friendly convoy vehicles can intercept either side's fire.
       const targets=this.units.filter(u=>u.alive&&(b.side==='player'||u.kind==='friendlytruck')).filter(u=>sweptDistance(u,previous,b)<(u.kind==='motorcycle'?14:u.kind==='pursuit'?30:25)).sort((a,c)=>distance(a,previous)-distance(c,previous));
       const u=targets[0];if(u){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='friendlytruck'){this.lost++;this.events.push({kind:'trafficloss',x:u.x,y:u.y,shooter:b.side});}else{this.kills++;this.events.push({kind:'vehicledestroyed',x:u.x,y:u.y});if(u.id===this.finalId){this.finalCleared=true;this.events.push({kind:'pursuitclear',x:u.x,y:u.y});}}}continue;}
-      if(b.side==='enemy'&&sweptDistance(GUN,previous,b)<26){b.life=0;this.health-=4;this.events.push({kind:'hit',...GUN});}
+      const impact=b.side==='enemy'?truckImpact(previous,b):undefined;
+      if(impact){b.life=0;this.health-=4;this.damageFlash=.3;this.events.push({kind:'hit',...impact});}
     }
     this.units=this.units.filter(u=>u.alive);this.bullets=this.bullets.filter(b=>b.life>0&&b.x>=0&&b.x<=960&&b.y>=0&&b.y<=600);this.health=Math.max(0,this.health);
     if(this.health<=0||this.lost>=3||(this.time>=BREAKOUT_DURATION&&!this.finalCleared)){this.state='lost';this.events.push({kind:'defeat',...GUN});}
     else if(this.time>=BREAKOUT_DURATION&&this.finalCleared){this.state='won';this.events.push({kind:'victory',...GUN});}
   }
-  private shoot(u:Unit){const spread=this.difficulty==='rookie'?125:this.difficulty==='veteran'?45:85,a=Math.atan2(GUN.y-u.y,GUN.x-u.x+(this.rng()-.5)*spread);this.bullets.push({x:u.x,y:u.y+20,vx:Math.cos(a)*270,vy:Math.sin(a)*270,side:'enemy',life:2.5});this.events.push({kind:'enemyburst',x:u.x,y:u.y});}
+  private shoot(u:Unit){const spread=this.difficulty==='rookie'?125:this.difficulty==='veteran'?45:85,a=Math.atan2(GUN.y-(u.y+20),GUN.x-u.x+(this.rng()-.5)*spread);this.bullets.push({x:u.x,y:u.y+20,vx:Math.cos(a)*270,vy:Math.sin(a)*270,side:'enemy',life:2.5});this.events.push({kind:'enemyburst',x:u.x,y:u.y});}
 }

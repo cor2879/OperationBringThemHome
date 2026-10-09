@@ -18,3 +18,23 @@ test('a careful simulated player can reach the checkpoint at every difficulty',(
 
 test('motorcycle arrivals alternate whole packs of two and three, with staggered lanes',()=>{const m=new BreakoutMission(()=>.5);advance(m,4.1);let bikes=m.units.filter(u=>u.kind==='motorcycle');assert.equal(bikes.length,2);assert.equal(new Set(bikes.map(u=>u.waypoint)).size,2);assert.notEqual(bikes[0].y,bikes[1].y);m.units=[];advance(m,7.6);bikes=m.units.filter(u=>u.kind==='motorcycle');assert.equal(bikes.length,3);assert.equal(new Set(bikes.map(u=>u.waypoint)).size,3);});
 test('a motorcycle pack waits for enough capacity instead of arriving one at a time',()=>{const m=new BreakoutMission(()=>.5);m.units=[vehicle('jeep',260),vehicle('jeep',390),vehicle('jeep',570),vehicle('jeep',700)];advance(m,4.1);assert.equal(m.units.filter(u=>u.kind==='motorcycle').length,0);m.units.pop();m.update(.05);assert.equal(m.units.filter(u=>u.kind==='motorcycle').length,2);assert.equal(m.units.length,5);});
+
+test('enemy shots damage the full visible truck body, not only the gun mount',()=>{
+  for(const x of [GUN.x-34,GUN.x,GUN.x+34]){
+    const m=new BreakoutMission();m.bullets=[{x,y:GUN.y-60,vx:0,vy:600,side:'enemy',life:1}];m.update(.05);
+    assert.equal(m.health,96);assert.equal(m.bullets.length,0);assert.equal(m.damageFlash,.3);
+    const hit=m.drainEvents().find(e=>e.kind==='hit');assert.equal(hit?.x,x);assert.equal(hit?.y,GUN.y-45);
+    advance(m,.35);assert.equal(m.health,96);assert.equal(m.damageFlash,0);
+  }
+});
+test('shots crossing a truck side or rear damage it, while near misses and player fire do not',()=>{
+  for(const b of [
+    {x:GUN.x-50,y:GUN.y+30,vx:600,vy:0},
+    {x:GUN.x+50,y:GUN.y+30,vx:-600,vy:0},
+    {x:GUN.x,y:GUN.y+60,vx:0,vy:-600}
+  ]){const m=new BreakoutMission();m.bullets=[{...b,side:'enemy',life:1}];m.update(.05);assert.equal(m.health,96);}
+  for(const side of ['enemy','player'] as const){const m=new BreakoutMission();m.bullets=[{x:GUN.x+(side==='enemy'?36:0),y:GUN.y-60,vx:0,vy:600,side,life:1}];m.update(.05);assert.equal(m.health,100);assert.equal(m.damageFlash,0);}
+});
+test('actual enemy bursts damage an unattended truck at every difficulty',()=>{
+  for(const difficulty of ['rookie','regular','veteran'] as const){const m=new BreakoutMission(()=>.5,difficulty);advance(m,10);assert.ok(m.health<100,difficulty);}
+});
