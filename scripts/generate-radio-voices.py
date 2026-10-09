@@ -7,6 +7,14 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LINES = {
+    'Hold the outpost. The convoy is on its way.': 'rms',
+    'Hostiles approaching from the left!': 'rms',
+    'Hostiles approaching from the center!': 'rms',
+    'Hostiles approaching from the right!': 'rms',
+    'Wounded coming through! Watch your fire!': 'kal',
+    'Convoy arriving! Cover the boarding!': 'rms',
+    'Enemy gun reloading. Clear the position.': 'rms',
+    'Medics, heads down!': 'rms',
     'Prisoners are moving. Cover the route.': 'rms',
     'We made it! Keep them coming!': 'kal',
     'One more heading home!': 'kal',

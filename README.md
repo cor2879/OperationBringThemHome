@@ -46,3 +46,9 @@ The build script copies the compiled site to root `index.html` and `assets/`. Co
 4. Optional human opponent and controller support.
 
 This is a new game inspired by classic home-computer action adventures. Code, graphics, and music are original. The casualty scream is the user-supplied `retroScream.mp3`, identified by the contributor as a sound effect from Beach Head II / Impossible Mission. Its inclusion does not establish redistribution rights. The source preserves the supplied MP3 bytes in `src/audio/retro-scream.ts`.
+
+## Chapter 03: Hold the Line
+
+Choose Hold the Line above the game, or open `?chapter=defense`. Defend an outpost until the convoy arrives at 150 seconds, then hold through twelve seconds of boarding. Lose if the gun position reaches zero health or three friendly stretcher teams die. Warnings precede rotating left, center and right attacks; sappers breach the gate and machine-gun crews telegraph a burst before reloading. COVER makes medics duck and cross at 35% speed, shielding them from enemy bullets but never friendly fire. GO restores full speed. Desktop and touch controls, shared ammunition, audio toggles and bundled radio recordings carry over from Rescue. Chapters have separate encounter rules and scenery; Rescue remains the default.
+
+Defense tests cover wave warnings and sectors, friendly-fire attribution, ducking/GO, gate breaches, gun-crew interruption, convoy boarding, failure priority, aid-station arrival and a deterministic careful-player completion at all three difficulties.

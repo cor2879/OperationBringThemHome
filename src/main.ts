@@ -7,6 +7,9 @@ import radioClips from './audio/radio-clips.ts';
 import { RadioVoice } from './audio/radio.ts';
 import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
+import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
+import {drawDefenseField,drawStretcherTeam,drawConvoy} from './art/defense-render.ts';
+const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -56,13 +59,21 @@ function speak(line:string){
 type Spark={x:number;y:number;life:number;color:number;vx:number;vy:number};
 const overlay=document.createElement('div');overlay.className='briefing';$('game').append(overlay);
 overlay.innerHTML='<p class="eyebrow">OPERATION ORDER / SECTOR 07</p><h2>ONE CROSSING AT A TIME.</h2><p>Twelve prisoners. Bring eight home in six minutes.<br>Only one escapee leaves at a time. Protect every crossing.<br>Orange uniforms are friendly. Red helmets are hostile.<br>Hold C / COVER at the next shelter. Release to GO!<br>Green bars: reload opening. A bark warns of a dog!</p><div class="difficulty"><label for="difficulty">AI DIFFICULTY</label><select id="difficulty"><option value="rookie">ROOKIE</option><option value="regular" selected>REGULAR</option><option value="veteran">VETERAN</option></select></div><button id="begin">BEGIN OPERATION →</button><small>Mouse: aim + hold click · Keyboard: A/D + Space<br>Touch: aiming slider + hold FIRE</small>';
+if(defenseChapter){
+  document.body.classList.add('defense-chapter');
+  document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 03<br><b>HOLD THE LINE</b><br>PLAYABLE PROTOTYPE';
+  overlay.querySelector('h2')!.textContent='HOLD UNTIL RELIEF ARRIVES.';
+  overlay.querySelector('h2 + p')!.innerHTML='Hold the outpost for 2½ minutes, then cover boarding.<br>Keep your position intact. Lose fewer than three stretcher teams.<br>Orange uniforms are friendly. Red helmets are hostile.<br>COVER makes medics duck and move slowly; GO speeds them up.<br>Waves approach from left, center and right. Watch the warnings!';
+  document.querySelector('.squad-controls span')!.innerHTML='Hold C / COVER: medics duck and move slowly. Release: GO!<br>Orange stretcher teams are friendly. Enemy aiming lines warn of shots.';
+  document.querySelector('.intel')!.innerHTML='<p><b>HOLD THE LINE</b><br>The rescued prisoners are waiting inside the outpost. Keep the gun position intact until the convoy arrives, then defend the twelve-second boarding window.</p><p><b>CHOOSE YOUR TARGETS</b><br>Infantry advance into firing range, sappers rush the gate, and gun crews alternate bursts and reloads. Every wave gives a warning before entering from a new direction.</p><p><b>PROTECT THE CROSSING</b><br>Stretcher teams carry wounded people from the left shelter to the aid station. COVER shields them from enemy shots while slowing their movement. Your own bullets can still hit them. Losing three teams ends the mission.</p>';
+}
 let scene:RescueScene;
 if(mobileLayout()){
-  overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
+  if(!defenseChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
   overlay.querySelector('small')!.textContent='Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
-  mission=new RescueMission();started=false;paused=false;ready=false;
+  mission:RescueMission=defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
   ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
@@ -99,9 +110,9 @@ class RescueScene extends Phaser.Scene{
   start(){
     if(!this.ready)return;
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
-    this.mission=new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
+    this.mission=defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     touch.reset();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
-    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL','Prisoners are moving. Cover the route.',true);this.updateStatus();
+    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
@@ -115,9 +126,13 @@ class RescueScene extends Phaser.Scene{
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
   updateStatus(){
-    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?'EXTRACTION COMPLETE':this.mission.state==='lost'?'OPERATION LOST':'COVERING THE ESCAPE';
+    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?'EXTRACTION COMPLETE':this.mission.state==='lost'?'OPERATION LOST':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
+    if(e.kind==='defensewarning')this.callout('CONTROL',['Hostiles approaching from the left!','Hostiles approaching from the center!','Hostiles approaching from the right!'][e.x],true);
+    if(e.kind==='medic')this.callout('MEDIC','Wounded coming through! Watch your fire!',true);
+    if(e.kind==='convoy')this.callout('CONTROL','Convoy arriving! Cover the boarding!',true);
+    if(e.kind==='defensereload')this.callout('CONTROL','Enemy gun reloading. Clear the position.');
     if(e.kind==='shot'){gunSound();this.burst(e.x+Math.cos(this.mission.angle)*28,e.y+Math.sin(this.mission.angle)*28,0xffd089,3);}
     if(e.kind==='hit')this.burst(e.x,e.y,0xffbf65,7);
     if(e.kind==='rescue'){tone(620,.15,'triangle',.04);this.callout('PRISONER',['We made it! Keep them coming!','One more heading home!','Thank you! Get the others!'][this.mission.rescued%3]);}
@@ -141,9 +156,9 @@ class RescueScene extends Phaser.Scene{
       this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
       if(this.started&&this.mission.state==='playing'){
         const cover=held.has('KeyC')||coverPointers.size>0||touch.cover;
-        if(this.mission.commandCover(cover))this.callout('SQUAD',cover?'Take cover! Stop at the next shelter!':'Moving! Cover us!',true);
+        if(this.mission.commandCover(cover))this.callout('SQUAD',cover?(defenseChapter?'Medics, heads down!':'Take cover! Stop at the next shelter!'):'Moving! Cover us!',true);
         $('cover').setAttribute('aria-pressed',String(cover));
-        $('cover').textContent=cover?'IN COVER · RELEASE TO GO':'HOLD: TAKE COVER';
+        $('cover').textContent=cover?(defenseChapter?'MEDICS DUCKING · RELEASE TO GO':'IN COVER · RELEASE TO GO'):'HOLD: TAKE COVER';
         const direction=(held.has('KeyD')||held.has('ArrowRight')?1:0)-(held.has('KeyA')||held.has('ArrowLeft')?1:0);
         if(direction){this.mission.angle=Phaser.Math.Clamp(this.mission.angle+direction*1.6*dt,-Math.PI+.08,-.08);this.aim={x:GUN.x+Math.cos(this.mission.angle)*380,y:GUN.y+Math.sin(this.mission.angle)*380};}
         if(held.has('Space')||firing||touch.firing||this.pointerHeld)this.mission.fire();
@@ -158,10 +173,18 @@ class RescueScene extends Phaser.Scene{
     held.clear();touch.reset();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
     this.callout('CONTROL',won?'Extraction confirmed. You brought them home.':'Pull back. The operation is over.',true);
-    overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Next up: the helicopter escape.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
+    if(defenseChapter){
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY IS AWAY.':'THE LINE WAS BROKEN.'}</h2><p>${won?'The survivors are heading home. You held the outpost.':m.health<=0?'The gun position was overrun.':'Three stretcher teams were lost.'}</p><div class="report"><span><b>${m.rescued}</b>TEAMS SAFE</span><span><b>${m.lost}</b>TEAMS LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>Prioritize sappers. Reload while enemy crews reload.</small>`;return;
+    }
+    overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Try Chapter 03: Hold the Line.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
   }
   burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
   drawField(g:PhaserType.GameObjects.Graphics){
+    if(defenseChapter){
+      drawDefenseField(g);
+      const label=(x:number,y:number,text:string)=>this.add.text(x,y,text,{fontFamily:'monospace',fontSize:'11px',color:'#e0d6a5',backgroundColor:'#17231c',padding:{x:4,y:3}});
+      label(138,322,'CASUALTY SHELTER');label(740,322,'AID STATION');label(420,458,'OUTPOST GATE');label(840,510,'CONVOY →');return;
+    }
     drawBattlefield(g);
     const label=(x:number,y:number,text:string,color='#e0d6a5')=>this.add.text(x,y,text,{fontFamily:'monospace',fontSize:'10px',color,backgroundColor:'#17231c',padding:{x:4,y:2}});
     label(28,74,'HOLDING COMPOUND');label(834,78,'HOSTILE SECTOR','#e0aa8a');
@@ -176,16 +199,17 @@ class RescueScene extends Phaser.Scene{
       g.lineStyle(2,color,.8);g.strokeCircle(x,y,25);
       if(u.phase!=='advance'){
         g.fillStyle(0x101b16,.9);g.fillRect(x-31,y-38,62,8);
-        const duration=u.phase==='reload'?(this.mission.difficulty==='rookie'?9.5:this.mission.difficulty==='veteran'?7.5:8.5):u.phase==='burst'?2.4:1.5;
+        const duration=defenseChapter?(u.phase==='reload'?8:2):u.phase==='reload'?(this.mission.difficulty==='rookie'?9.5:this.mission.difficulty==='veteran'?7.5:8.5):u.phase==='burst'?2.4:1.5;
         g.fillStyle(color);g.fillRect(x-30,y-37,60*Math.max(0,(u.phaseTimer??0)/duration),6);
       }
     }
     if(u.aimPoint){g.lineStyle(1,0xff7654,.65);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);}
-    drawCharacter(g,u);
+    if(defenseChapter&&u.kind==='prisoner')drawStretcherTeam(g,u);else drawCharacter(g,u);
     if(u.hp===1&&u.kind!=='prisoner'&&u.kind!=='dog'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-29,7,2);}
   }
   draw(){
     const m=this.mission,g=this.ink;g.clear();
+    if(m instanceof DefenseMission){this.drawDefense(m,g);return;}
     SHELTERS.forEach((s,i)=>{
       const occupied=m.units.some(u=>u.shelter===i);
       g.lineStyle(1,m.coverOrdered?0xe5aa63:0x8fa67a,.8);g.strokeRect(s.x-27,s.y-12,54,31);
@@ -216,6 +240,24 @@ class RescueScene extends Phaser.Scene{
     for(let i=0;i<8;i++){g.fillStyle(i<m.rescued?0xc8df94:0x40523b);g.fillRect(785+i*19,24,13,18);}
     if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(480,550,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
   }
+  drawDefense(m:DefenseMission,g:PhaserType.GameObjects.Graphics){
+    if(m.convoyArrived)drawConvoy(g,(m.time-CONVOY_ETA)/3);
+    if(m.warning){const x=[90,480,870][m.warning.sector];g.lineStyle(3,0xffa35b,.7);g.strokeCircle(x,140,30+Math.sin(this.tick*8)*4);}
+    [...m.units].sort((a,b)=>a.y-b.y).forEach(u=>this.drawUnit(g,u));
+    m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.012,b.y-b.vy*.012);});
+    drawPlayerGun(g,m.angle);
+    if(this.started&&m.state==='playing'){g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(this.aim.x,Math.min(this.aim.y,515),14);}
+    for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
+    const remaining=Math.ceil(m.convoyArrived?m.boardingRemaining:m.convoyRemaining);
+    this.hud.setText(`OUTPOST ${m.health}%     TEAMS SAFE ${m.rescued}     LOST ${m.lost} / 03
+${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'}     HOSTILES ${m.kills}     ${m.difficulty.toUpperCase()}`);
+    this.escapeeStatus.setText(m.convoyArrived?`BOARDING · ${remaining}s`:`CONVOY ETA · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`);
+    const crew=m.units.find(u=>u.kind==='machinegun');
+    this.machinegunStatus.setVisible(true).setText(m.warning?['LEFT FLANK INBOUND','CENTER INBOUND','RIGHT FLANK INBOUND'][m.warning.sector]:crew?crew.phase==='reload'?'ENEMY GUN RELOADING':'ENEMY GUN · CLEAR THE CREW':m.coverOrdered?'MEDICS DUCKING · SLOW CROSSING':'WATCH FOR FRIENDLY CROSSINGS').setColor(crew?.phase==='reload'?'#a9d989':'#ffbd70');
+    g.fillStyle(0x394b35);g.fillRect(640,45,300,5);g.fillStyle(0xd7b374);g.fillRect(640,45,300*Math.min(1,m.time/(CONVOY_ETA+BOARDING_TIME)),5);
+    if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(480,550,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
+  }
+
 }
 
 if(typeof Phaser==='undefined'){
