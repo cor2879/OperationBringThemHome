@@ -84,3 +84,5 @@ Duel pacing: player movement is 220 px/s; AI movement is 190 px/s (220 on Vetera
 Knife reserves: both fighters start with three knives, spent only when a throw launches. One knife recharges every 2.5 seconds, up to three; recharge freezes with the mission and never banks while full. Short recovery allows bursts, but an empty reserve blocks new throws. Both reserves are visible in the HUD.
 
 Match format: best two out of three rounds. Five hits win a round; a two-minute timeout awards it to the AI. Three-second intermissions freeze combat, then reset health, knife reserves, stamina, positions and the timer. The HUD shows round score; the chapter ends only when either side wins twice.
+
+Defeated duelists tumble into the fortress pit with the bundled retro scream on every knockout. Final results wait for the fall to finish; timeouts do not trigger a death animation. The Commandant alternates original fortress dialogue with “You can’t hurt meeee!” on surviving player hits.

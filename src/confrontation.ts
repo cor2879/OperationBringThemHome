@@ -22,6 +22,7 @@ const moveToward=(value:number,target:number,amount:number)=>value<target?Math.m
 export class ConfrontationMission extends RescueMission{
   player:Duelist={x:195,y:320,lane:1,health:5,duck:0,windup:0,recovery:0,flash:0,knifePool:KNIFE_POOL,knifeCharge:0};
   opponent:Duelist={x:765,y:320,lane:1,health:5,duck:0,windup:0,recovery:1.5,flash:0,knifePool:KNIFE_POOL,knifeCharge:0};
+  death:{side:'player'|'enemy';x:number;y:number;elapsed:number}|null=null;
   round=1;playerRounds=0;enemyRounds=0;intermission=0;roundWinner:'player'|'enemy'|null=null;
   throwDirection=0;enemyTilt=0;knives:Knife[]=[];stamina=1;duckHeld=false;throws=0;dodges=0;private serial=0;private think=0;private evadeCooldown=0;private randomDuel:()=>number;
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){super(random,difficulty);this.randomDuel=random;}
@@ -46,7 +47,7 @@ export class ConfrontationMission extends RescueMission{
   }
   override update(dt:number){
     if(this.state!=='playing')return;dt=Math.max(0,Math.min(.05,dt));
-    if(this.intermission>0){this.intermission=Math.max(0,this.intermission-dt);if(this.intermission===0)this.nextRound();return;}
+    if(this.intermission>0){if(this.death)this.death.elapsed+=dt;this.intermission=Math.max(0,this.intermission-dt);if(this.intermission===0){if(this.playerRounds===2||this.enemyRounds===2)this.finishMatch();else this.nextRound();}return;}
     this.time+=dt;
     const p=this.player,e=this.opponent;
     for(const u of [p,e]){u.recovery=Math.max(0,u.recovery-dt);u.flash=Math.max(0,u.flash-dt);
@@ -93,11 +94,18 @@ export class ConfrontationMission extends RescueMission{
   private endRound(winner:'player'|'enemy'){
     this.roundWinner=winner;if(winner==='player')this.playerRounds++;else this.enemyRounds++;
     this.knives=[];this.duckHeld=false;this.player.windup=0;this.opponent.windup=0;
-    if(this.playerRounds===2||this.enemyRounds===2){this.state=winner==='player'?'won':'lost';this.events.push({kind:winner==='player'?'victory':'defeat',x:this.player.x,y:this.player.y});}
-    else{this.intermission=3;this.events.push({kind:'duelround',x:this.player.x,y:this.player.y,shooter:winner});}
+    const fallen=this.player.health<=0?'player':this.opponent.health<=0?'enemy':null;
+    if(fallen){const u=fallen==='player'?this.player:this.opponent;this.death={side:fallen,x:u.x,y:u.y,elapsed:0};this.events.push({kind:'dueldeath',x:u.x,y:u.y,shooter:fallen});}
+    if((this.playerRounds===2||this.enemyRounds===2)&&!this.death){this.finishMatch();return;}
+    this.intermission=this.playerRounds===2||this.enemyRounds===2?1.8:3;
+    this.events.push({kind:'duelround',x:this.player.x,y:this.player.y,shooter:winner});
   }
+  private finishMatch(){
+    const won=this.playerRounds===2;this.state=won?'won':'lost';this.events.push({kind:won?'victory':'defeat',x:this.player.x,y:this.player.y});
+  }
+
   private nextRound(){
-    this.round++;this.time=0;this.roundWinner=null;this.health=100;this.stamina=1;this.duckHeld=false;this.throwDirection=0;this.enemyTilt=0;this.think=0;this.evadeCooldown=0;
+    this.death=null;this.round++;this.time=0;this.roundWinner=null;this.health=100;this.stamina=1;this.duckHeld=false;this.throwDirection=0;this.enemyTilt=0;this.think=0;this.evadeCooldown=0;
     for(const u of [this.player,this.opponent])Object.assign(u,{y:320,lane:1,health:5,duck:0,windup:0,recovery:u===this.player?0:1.5,flash:0,knifePool:KNIFE_POOL,knifeCharge:0});
     this.events.push({kind:'duelstart',x:this.player.x,y:this.player.y});
   }

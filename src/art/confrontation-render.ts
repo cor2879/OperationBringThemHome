@@ -2,12 +2,12 @@ import type {GameObjects} from 'phaser';
 import {DUEL_LANES,DUEL_SCALE,KNIFE_TILT,throwHeight,type ConfrontationMission,type Duelist} from '../confrontation.ts';
 type Ink=GameObjects.Graphics;
 const r=(g:Ink,c:number,x:number,y:number,w:number,h:number)=>{g.fillStyle(c);g.fillRect(Math.round(x),Math.round(y),w,h);};
-function fighter(g:Ink,u:Duelist,enemy:boolean,time:number){
-  g.save();g.translateCanvas(Math.round(u.x),Math.round(u.y+40));g.scaleCanvas(DUEL_SCALE,DUEL_SCALE);
+function fighter(g:Ink,u:Duelist,enemy:boolean,time:number,rotation=0){
+  g.save();g.translateCanvas(Math.round(u.x),Math.round(u.y+40));g.rotateCanvas(rotation);g.scaleCanvas(DUEL_SCALE,DUEL_SCALE);
   const x=0,y=-40,face=enemy?-1:1,duck=u.duck>0;
   const coat=u.flash>0?0xf4c591:enemy?0x8d493c:0x3c8293;
   const head=y+(duck?8:-40),body=y+(duck?24:-18);
-  r(g,0x111c20,x-23,y+37,46,8);
+  if(u.health>0)r(g,0x111c20,x-23,y+37,46,8);
   r(g,0xb99871,x-9,head,18,19);r(g,enemy?0x9e493c:0xdddcc6,x-13,head-5,26,9);
   r(g,0x293035,x+face*6,head+7,3,3);r(g,0x665540,x-face*9,head+2,4,11);
   r(g,coat,x-16,body,32,duck?14:33);r(g,enemy?0xcf7956:0xdacba1,x-16,body+2,32,5);
@@ -36,7 +36,14 @@ export function drawConfrontation(g:Ink,m:ConfrontationMission){
   for(const y of DUEL_LANES){g.lineStyle(1,0x5a6559,.45);for(let x=294;x<670;x+=26)g.lineBetween(x,y+40-52*DUEL_SCALE,x+9,y+40-52*DUEL_SCALE);}
   if(m.opponent.windup>0){g.lineStyle(2,0xf07e5f,.5);g.lineBetween(715,throwHeight(m.opponent),245,throwHeight(m.opponent)+Math.tan(m.enemyTilt)*470);}
   if(m.player.windup>0){g.lineStyle(1,0xf3d597,.6);g.lineBetween(225,throwHeight(m.player),735,throwHeight(m.player)+Math.tan(Math.sign(m.throwDirection)*KNIFE_TILT)*510);}
-  fighter(g,m.player,false,m.time);fighter(g,m.opponent,true,m.time);
+  for(const [u,side] of [[m.player,'player'],[m.opponent,'enemy']] as const){
+    const d=m.death?.side===side?m.death:null;
+    if(d){const t=d.elapsed,dir=side==='player'?1:-1;
+      const x=d.x+dir*(Math.min(t,.4)*250+t*70);
+      const y=d.y-18*Math.sin(Math.min(t/.4,1)*Math.PI)+350*Math.max(0,t-.35)**2;
+      if(y<640)fighter(g,{...u,x,y,duck:0,flash:0},side==='enemy',m.time,dir*t*3);
+    }else fighter(g,u,side==='enemy',m.time);
+  }
   for(const k of m.knives){g.save();g.translateCanvas(k.x,k.y);g.rotateCanvas(Math.atan2(k.vy,k.vx));r(g,k.side==='player'?0xf7dfa3:0xff967b,-8,-1.5,16,3);r(g,0xa28b65,-11,-3,4,6);g.restore();}
   r(g,0x101b1c,0,0,960,76);r(g,0x101b1c,0,560,960,40);
   for(let i=0;i<5;i++){r(g,i<m.player.health?0x83c6b4:0x33413c,21+i*28,49,22,8);r(g,i<m.opponent.health?0xe88266:0x413730,666+i*28,49,22,8);}

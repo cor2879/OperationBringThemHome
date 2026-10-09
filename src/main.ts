@@ -102,7 +102,7 @@ if(mobileLayout()){
 class RescueScene extends Phaser.Scene{
   mission:RescueMission=confrontationChapter?new ConfrontationMission():breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
   truckHealth!:PhaserType.GameObjects.Text;ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
-  radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
+  duelTaunt=0;radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
   preload(){
@@ -157,11 +157,12 @@ class RescueScene extends Phaser.Scene{
     $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(confrontationChapter?'COMMANDANT DEFEATED':breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':confrontationChapter?'FACING THE COMMANDANT':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
-    if(e.kind==='duelround'||e.kind==='duelstart'){held.clear();coverPointers.clear();$('touch-cover').setAttribute('aria-pressed','false');touch.reset();firing=false;this.pointerHeld=false;($('touch-aim') as HTMLInputElement).value='50';updateTouchCover();if(e.kind==='duelround')tone(e.shooter==='player'?700:160,.2,'triangle',.04);}
+    if(e.kind==='duelround'||e.kind==='duelstart'){held.clear();coverPointers.clear();$('touch-cover').setAttribute('aria-pressed','false');touch.reset();firing=false;this.pointerHeld=false;($('touch-aim') as HTMLInputElement).value='50';updateTouchCover();if(e.kind==='duelround')tone(e.shooter==='player'?700:160,.2,'triangle',.04);else this.callout('COMMANDANT',"You can’t hurt meeee!",true);}
 
     if(e.kind==='knifethrow'){tone(e.shooter==='player'?700:420,.08,'triangle',.045);}
     if(e.kind==='duelwarning'){tone(190,.05,'square',.02);}
-    if(e.kind==='duelhit'){this.burst(e.x,e.y,0xffbd76,12);tone(90,.14,'sawtooth',.04);if(e.shooter==='player')this.callout('COMMANDANT','You will never leave this fortress!',false);else this.callout('CONTROL','Stay sharp. Watch his throwing arm.',false);}
+    if(e.kind==='duelhit'){this.burst(e.x,e.y,0xffbd76,12);tone(90,.14,'sawtooth',.04);const m=this.mission;if(m instanceof ConfrontationMission&&!m.death){if(e.shooter==='player'&&this.radioCooldown<=0)this.callout('COMMANDANT',this.duelTaunt++%2===0?'You will never leave this fortress!':"You can’t hurt meeee!",false);else if(e.shooter==='enemy')this.callout('CONTROL','Stay sharp. Watch his throwing arm.',false);}}
+    if(e.kind==='dueldeath'){stopVoice();this.radioTime=0;casualtyScream();}
     if(e.kind==='dueldodge'){tone(500,.07,'triangle',.02);}
 
     if(e.kind==='bikewarning')this.callout('DRIVER',"Motorcycles! They're gaining on us!");
@@ -279,7 +280,7 @@ class RescueScene extends Phaser.Scene{
       this.hud.setText(`YOU ${m.player.health}/5                   DUCK STAMINA`);
       this.truckHealth.setPosition(666,18).setFontSize(14).setText(`COMMANDANT ${m.opponent.health}/5 · KNIVES ${m.opponent.knifePool}`).setColor(m.opponent.flash>0?'#ff8870':'#e7e8cf');
       this.hud.setColor(m.player.flash>0?'#ff8870':'#e7e8cf');
-      this.machinegunStatus.setVisible(true).setText(m.intermission>0?`ROUND ${m.round} ${m.roundWinner==='player'?'WON':'LOST'} · NEXT ROUND IN ${Math.ceil(m.intermission)}s`:`KNIVES ${m.player.knifePool}/3 · `+(m.player.knifePool===0?'RECHARGE '+(KNIFE_RECHARGE-m.player.knifeCharge).toFixed(1)+'s':m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY'));
+      this.machinegunStatus.setVisible(true).setText(m.intermission>0?`ROUND ${m.round} ${m.roundWinner==='player'?'WON':'LOST'} · ${m.playerRounds===2||m.enemyRounds===2?'MATCH COMPLETE':`NEXT ROUND IN ${Math.ceil(m.intermission)}s`}`:`KNIVES ${m.player.knifePool}/3 · `+(m.player.knifePool===0?'RECHARGE '+(KNIFE_RECHARGE-m.player.knifeCharge).toFixed(1)+'s':m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY'));
       const duelSeconds=Math.ceil(m.remaining);
       this.escapeeStatus.setPosition(610,562).setFontSize(12).setText(`ROUND ${m.round}/3 · YOU ${m.playerRounds} : AI ${m.enemyRounds}\nTIME ${Math.floor(duelSeconds/60)}:${String(duelSeconds%60).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
       for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}return;
