@@ -8,7 +8,7 @@ import { RadioVoice } from './audio/radio.ts';
 import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
-import {drawDefenseField,drawStretcherTeam,drawConvoy} from './art/defense-render.ts';
+import {drawDefenseField,drawStretcherTeam,drawConvoy,drawArmoredTransport} from './art/defense-render.ts';
 const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
 declare const Phaser: typeof PhaserType;
 
@@ -65,7 +65,7 @@ if(defenseChapter){
   overlay.querySelector('h2')!.textContent='HOLD UNTIL RELIEF ARRIVES.';
   overlay.querySelector('h2 + p')!.innerHTML='Hold the outpost for 2½ minutes, then cover boarding.<br>Keep your position intact. Lose fewer than three stretcher teams.<br>Orange uniforms are friendly. Red helmets are hostile.<br>COVER makes medics duck and move slowly; GO speeds them up.<br>Waves approach from left, center and right. Watch the warnings!';
   document.querySelector('.squad-controls span')!.innerHTML='Hold C / COVER: medics duck and move slowly. Release: GO!<br>Orange stretcher teams are friendly. Enemy aiming lines warn of shots.';
-  document.querySelector('.intel')!.innerHTML='<p><b>HOLD THE LINE</b><br>The rescued prisoners are waiting inside the outpost. Keep the gun position intact until the convoy arrives, then defend the twelve-second boarding window.</p><p><b>CHOOSE YOUR TARGETS</b><br>Infantry advance into firing range, sappers rush the gate, and gun crews alternate bursts and reloads. Every wave gives a warning before entering from a new direction.</p><p><b>PROTECT THE CROSSING</b><br>Stretcher teams carry wounded people from the left shelter to the aid station. COVER shields them from enemy shots while slowing their movement. Your own bullets can still hit them. Losing three teams ends the mission.</p>';
+  document.querySelector('.intel')!.innerHTML='<p><b>HOLD THE LINE</b><br>The rescued prisoners are waiting inside the outpost. Keep the gun position intact until the convoy arrives, then defend the twelve-second boarding window.</p><p><b>CHOOSE YOUR TARGETS</b><br>Infantry advance into firing range, sappers rush the gate, and gun crews alternate bursts and reloads. Every wave gives a warning before entering from a new direction. Occasional armored transports take eight hits, drop off three infantry, and aim their machine gun at exposed medics or your position. Destroy them before they unload!</p><p><b>PROTECT THE CROSSING</b><br>Stretcher teams carry wounded people from the left shelter to the aid station. COVER shields them from enemy shots while slowing their movement. Your own bullets can still hit them. Losing three teams ends the mission.</p>';
 }
 let scene:RescueScene;
 if(mobileLayout()){
@@ -129,6 +129,8 @@ class RescueScene extends Phaser.Scene{
     $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?'EXTRACTION COMPLETE':this.mission.state==='lost'?'OPERATION LOST':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
+    if(e.kind==='armorwarning')this.callout('CONTROL','Armored transport inbound! Stop the reinforcements!',true);
+    if(e.kind==='armordestroyed'){this.burst(e.x,e.y,0xffa451,35);tone(55,.4,'sawtooth',.07);this.callout('CONTROL','Transport destroyed!',true);}
     if(e.kind==='defensewarning')this.callout('CONTROL',['Hostiles approaching from the left!','Hostiles approaching from the center!','Hostiles approaching from the right!'][e.x],true);
     if(e.kind==='medic')this.callout('MEDIC','Wounded coming through! Watch your fire!',true);
     if(e.kind==='convoy')this.callout('CONTROL','Convoy arriving! Cover the boarding!',true);
@@ -204,7 +206,7 @@ class RescueScene extends Phaser.Scene{
       }
     }
     if(u.aimPoint){g.lineStyle(1,0xff7654,.65);g.lineBetween(x,y,u.aimPoint.x,u.aimPoint.y);}
-    if(defenseChapter&&u.kind==='prisoner')drawStretcherTeam(g,u);else drawCharacter(g,u);
+    if(u.kind==='transport')drawArmoredTransport(g,u);else if(defenseChapter&&u.kind==='prisoner')drawStretcherTeam(g,u);else drawCharacter(g,u);
     if(u.hp===1&&u.kind!=='prisoner'&&u.kind!=='dog'){g.fillStyle(0xdfb270);g.fillRect(x-7,y-29,7,2);}
   }
   draw(){
@@ -252,8 +254,8 @@ class RescueScene extends Phaser.Scene{
     this.hud.setText(`OUTPOST ${m.health}%     TEAMS SAFE ${m.rescued}     LOST ${m.lost} / 03
 ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'}     HOSTILES ${m.kills}     ${m.difficulty.toUpperCase()}`);
     this.escapeeStatus.setText(m.convoyArrived?`BOARDING · ${remaining}s`:`CONVOY ETA · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`);
-    const crew=m.units.find(u=>u.kind==='machinegun');
-    this.machinegunStatus.setVisible(true).setText(m.warning?['LEFT FLANK INBOUND','CENTER INBOUND','RIGHT FLANK INBOUND'][m.warning.sector]:crew?crew.phase==='reload'?'ENEMY GUN RELOADING':'ENEMY GUN · CLEAR THE CREW':m.coverOrdered?'MEDICS DUCKING · SLOW CROSSING':'WATCH FOR FRIENDLY CROSSINGS').setColor(crew?.phase==='reload'?'#a9d989':'#ffbd70');
+    const crew=m.units.find(u=>u.kind==='machinegun'),armor=m.units.find(u=>u.kind==='transport');
+    this.machinegunStatus.setVisible(true).setText(m.armorWarning>0?'ARMORED TRANSPORT INBOUND':armor?`ARMOR ${armor.hp}/8 · ${armor.phase==='unload'?'UNLOADING':armor.phase==='reload'?'RELOADING':armor.phase==='retreat'?'WITHDRAWING':armor.phase==='advance'?'APPROACHING':'GUN ACTIVE'}`:m.warning?['LEFT FLANK INBOUND','CENTER INBOUND','RIGHT FLANK INBOUND'][m.warning.sector]:crew?crew.phase==='reload'?'ENEMY GUN RELOADING':'ENEMY GUN · CLEAR THE CREW':m.coverOrdered?'MEDICS DUCKING · SLOW CROSSING':'WATCH FOR FRIENDLY CROSSINGS').setColor(crew?.phase==='reload'?'#a9d989':'#ffbd70');
     g.fillStyle(0x394b35);g.fillRect(640,45,300,5);g.fillStyle(0xd7b374);g.fillRect(640,45,300*Math.min(1,m.time/(CONVOY_ETA+BOARDING_TIME)),5);
     if(m.reloadTime>0){g.lineStyle(4,0xe5aa63);g.beginPath();g.arc(480,550,26,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-m.reloadTime/1.65));g.strokePath();}
   }

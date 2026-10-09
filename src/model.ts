@@ -1,7 +1,7 @@
 export type Point={x:number;y:number};
-export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegun'|'dog';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point;phase?:'advance'|'setup'|'burst'|'reload';phaseTimer?:number;preyId?:number;facing?:number};
+export type Unit=Point & {id:number;kind:'prisoner'|'raider'|'sapper'|'machinegun'|'dog'|'transport';hp:number;speed:number;waypoint:number;fireTimer:number;alive:boolean;step:number;shelter?:number;aimPoint?:Point;phase?:'advance'|'setup'|'burst'|'reload'|'unload'|'retreat';phaseTimer?:number;preyId?:number;facing?:number;cargo?:number;serviceTime?:number};
 export type Bullet=Point & {vx:number;vy:number;side:'player'|'enemy';life:number};
-export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload'|'dogwarning'|'defensewarning'|'medic'|'convoy'|'defensereload';x:number;y:number;shooter?:'player'|'enemy'};
+export type MissionEvent={kind:'shot'|'hit'|'rescue'|'loss'|'near'|'enemy'|'reload'|'victory'|'defeat'|'machinegun'|'enemyburst'|'enemyreload'|'dogwarning'|'defensewarning'|'medic'|'convoy'|'defensereload'|'armorwarning'|'armordestroyed';x:number;y:number;shooter?:'player'|'enemy'};
 export const ROUTE:Point[]=[{x:90,y:138},{x:145,y:220},{x:300,y:238},{x:420,y:345},{x:600,y:336},{x:870,y:460}];
 export const SHELTERS=[{waypoint:2,capacity:1,...ROUTE[2]},{waypoint:4,capacity:1,...ROUTE[4]}];
 export const WALLS=[{x:230,y:188,w:170,h:22},{x:525,y:284,w:150,h:22}];
