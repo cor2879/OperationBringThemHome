@@ -7,9 +7,9 @@ export function drawRoad(g:Ink,time:number){
   r(g,0x555943,183,62,594,538);r(g,0x272f2d,205,62,550,538);
   r(g,0x66664d,197,62,8,538);r(g,0x66664d,755,62,8,538);
   r(g,0xcec29a,218,62,3,538);r(g,0xcec29a,740,62,3,538);
-  const offset=(time*155)%96;
+  const offset=(time*232.5)%96;
   for(let y=62-offset;y<600;y+=96){for(const x of [350,480,610])r(g,0xa8a88b,x,y,4,42);}
-  for(let i=0;i<10;i++){const y=62+((i*71-time*155)%710+710)%710;if(y>600)continue;for(const x of [148,797]){r(g,0x263c29,x,y,16,22);r(g,0x71805c,x+5,y,7,3);r(g,0xb6b995,x+6,y+3,5,4);}}
+  for(let i=0;i<10;i++){const y=62+((i*71-time*232.5)%710+710)%710;if(y>600)continue;for(const x of [148,797]){r(g,0x263c29,x,y,16,22);r(g,0x71805c,x+5,y,7,3);r(g,0xb6b995,x+6,y+3,5,4);}}
   // Approaching bridge: rails scroll toward the vanishing pursuit behind the convoy.
   if(time>135){for(const x of [186,773]){r(g,0x9f9c7b,x,62,8,538);for(let y=62;y<600;y+=36)r(g,0x555f52,x-2,y,12,12);}}
   r(g,0x12201b,0,0,960,62);r(g,0x12201b,0,563,960,37);
