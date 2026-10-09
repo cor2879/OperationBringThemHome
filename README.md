@@ -76,3 +76,5 @@ Open `?chapter=breakout` or choose the third chapter above the game. Man the rea
 
 ## Chapter 04 — The Confrontation
 Open `?chapter=confrontation` for the fortress knife duel. Both fighters have five health points; defeat the commandant within two minutes. W/S or Up/Down changes between three levels, Space throws, and holding C ducks. A/D is an alternate height control. The same position slider and independent THROW/DUCK buttons work on touchscreen and desktop. Duck stamina lasts 1.1 seconds and recovers on release. Knives travel horizontally; throwing requires a settled position and exposes the fighter during wind-up. AI tracks heights, telegraphs throws, recovers between attacks, and sometimes ducks incoming knives while recovering. Rookie, Regular and Veteran adjust wind-up, knife speed and evasion. Chapter 05 — Extraction remains planned.
+
+Duel refinement: fighters render at 72% size with matching collision bounds. Holding Space plus up/down tilts a knife twelve degrees during wind-up; holding touch THROW while moving the slider gives the same angle control. Release THROW to change platforms.

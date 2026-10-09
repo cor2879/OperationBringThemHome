@@ -86,18 +86,18 @@ if(confrontationChapter){
   document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 04<br><b>THE CONFRONTATION</b><br>PLAYABLE PROTOTYPE';
   document.querySelector('.cabinet')!.setAttribute('aria-label','Knife throwing duel');
   overlay.querySelector('h2')!.textContent='ONE LAST GUARD. ONE WAY OUT.';
-  overlay.querySelector('h2 + p')!.innerHTML='The convoy is clear. Face the commandant across the fortress gap.<br>Land five knife hits before he does. You have two minutes.<br>Move HIGH / MIDDLE / LOW to line up your throw.<br>A raised arm and red line warn of his next knife.<br>Duck briefly or change height. Release DUCK to recover stamina.';
+  overlay.querySelector('h2 + p')!.innerHTML='The convoy is clear. Face the commandant across the fortress gap.<br>Land five knife hits before he does. You have two minutes.<br>Move HIGH / MIDDLE / LOW to line up your throw.<br>Hold THROW + up/down to tilt the knife toward the next level.<br>A raised arm and red line warn of his next knife.<br>Duck briefly or change height. Release DUCK to recover stamina.';
   overlay.querySelector('small')!.textContent='W/S or ↑/↓: position · Space: throw · Hold C: duck';
-  document.querySelector('.toolbar > span')!.innerHTML='<b>W/S or ↑/↓</b> move &nbsp; <b>SPACE</b> throw &nbsp; <b>C</b> duck &nbsp; <b>P</b> pause<br>Move to the same height as your opponent to line up a throw.';
+  document.querySelector('.toolbar > span')!.innerHTML='<b>W/S or ↑/↓</b> move &nbsp; <b>SPACE</b> throw &nbsp; <b>C</b> duck &nbsp; <b>P</b> pause<br>Hold Space + up/down for angled throws. Release Space to move.';
   document.querySelector('.touch-aim label')!.textContent='POSITION · HIGH / LOW';
   $('touch-aim').setAttribute('aria-label','Duel position high or low');
   $('touch-fire').textContent='HOLD THROW';$('touch-cover').textContent='HOLD DUCK';$('touch-reload').hidden=true;
-  document.querySelector('.intel')!.innerHTML='<p><b>THE CONFRONTATION</b><br>The commandant guards the route to extraction. Face him across three levels of the fortress. Land five hits within two minutes to clear the way for the helicopter.</p><p><b>READ THE WIND-UP</b><br>Knives fly horizontally from your current height. His raised arm and red line mark an incoming throw. Change levels or duck as the knife arrives. He can dodge too, but winding up leaves him exposed.</p><p><b>TIME YOUR RESPONSE</b><br>You cannot throw while ducking or moving between levels. Duck stamina lasts just over a second and recovers when released. The slider changes height; hold THROW and hold DUCK independently. Keyboard: W/S, Space and C.</p>';
+  document.querySelector('.intel')!.innerHTML='<p><b>THE CONFRONTATION</b><br>The commandant guards the route to extraction. Face him across three levels of the fortress. Land five hits within two minutes to clear the way for the helicopter.</p><p><b>READ THE WIND-UP</b><br>Knives fly straight or at a slight angle. Hold up/down while throwing to tilt toward another level. His raised arm and red line mark an incoming throw. Change levels or duck as the knife arrives. He can dodge too, but winding up leaves him exposed.</p><p><b>TIME YOUR RESPONSE</b><br>You cannot throw while ducking or moving between levels. Duck stamina lasts just over a second and recovers when released. The slider changes height. Hold THROW while moving the slider for angled knives; release it to move again. Hold DUCK independently. Keyboard: W/S, Space and C.</p>';
 }
 let scene:RescueScene;
 if(mobileLayout()){
   if(!defenseChapter&&!breakoutChapter&&!confrontationChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
-  overlay.querySelector('small')!.textContent=confrontationChapter?'Left thumb: position slider · Right thumb: hold THROW / DUCK':breakoutChapter?'Left thumb: aim slider · Right thumb: hold FIRE / tap RELOAD':'Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
+  overlay.querySelector('small')!.textContent=confrontationChapter?'Slider: position · Hold THROW + slider: angle · Hold DUCK':breakoutChapter?'Left thumb: aim slider · Right thumb: hold FIRE / tap RELOAD':'Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
   mission:RescueMission=confrontationChapter?new ConfrontationMission():breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
@@ -204,7 +204,9 @@ class RescueScene extends Phaser.Scene{
           const m=this.mission;
           m.commandCover(held.has('KeyC')||coverPointers.size>0||touch.cover);
           const up=held.has('KeyW')||held.has('ArrowUp')||held.has('KeyA'),down=held.has('KeyS')||held.has('ArrowDown')||held.has('KeyD');
-          if(up!==down&&Math.abs(m.player.y-DUEL_LANES[m.player.lane])<8)m.setLane(m.player.lane+(up?-1:1));
+          const throwing=held.has('Space')||firing||touch.firing||m.player.windup>0;
+          m.throwDirection=throwing&&up!==down?(down?1:-1):touch.firing?Math.sign(Number(($('touch-aim') as HTMLInputElement).value)/50-m.player.lane):0;
+          if(!throwing&&up!==down&&Math.abs(m.player.y-DUEL_LANES[m.player.lane])<8)m.setLane(m.player.lane+(up?-1:1));
           if(held.has('Space')||firing||touch.firing)m.fire();
         }else{
         const cover=held.has('KeyC')||coverPointers.size>0||touch.cover;
@@ -374,7 +376,7 @@ document.addEventListener('keydown',e=>{
   if(e.target===$('touch-aim')&&(!confrontationChapter||['ArrowLeft','ArrowRight','Home','End'].includes(e.code)))return;
   if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
-  if(!e.repeat){if(scene.mission instanceof ConfrontationMission&&!scene.paused){if(['KeyW','KeyA','ArrowUp'].includes(e.code))scene.mission.setLane(scene.mission.player.lane-1);if(['KeyS','KeyD','ArrowDown'].includes(e.code))scene.mission.setLane(scene.mission.player.lane+1);}if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
+  if(!e.repeat){if(scene.mission instanceof ConfrontationMission&&!scene.paused){if(!held.has('Space')&&!touch.firing&&scene.mission.player.windup<=0&&['KeyW','KeyA','ArrowUp'].includes(e.code))scene.mission.setLane(scene.mission.player.lane-1);if(!held.has('Space')&&!touch.firing&&scene.mission.player.windup<=0&&['KeyS','KeyD','ArrowDown'].includes(e.code))scene.mission.setLane(scene.mission.player.lane+1);}if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
 },true);
 document.addEventListener('keyup',e=>{if(!scene?.started||!controlKeys.has(e.code))return;e.preventDefault();e.stopPropagation();held.delete(e.code);},true);
 window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&scene)scene.pointerHeld=false;});
@@ -382,8 +384,8 @@ window.addEventListener('pointercancel',e=>{if(e.pointerType==='mouse'&&scene)sc
 window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);touch.firePointers.add(e.pointerId);});
-['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,e=>touch.firePointers.delete((e as PointerEvent).pointerId)));
-$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;if(scene.mission instanceof ConfrontationMission){scene.mission.setLane(Number(($('touch-aim') as HTMLInputElement).value)/50);return;}scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
+['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,e=>{touch.firePointers.delete((e as PointerEvent).pointerId);if(scene?.mission instanceof ConfrontationMission&&!touch.firing)($('touch-aim') as HTMLInputElement).value=String(scene.mission.player.lane*50);}));
+$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;if(scene.mission instanceof ConfrontationMission){if(touch.firing||scene.mission.player.windup>0)scene.mission.throwDirection=Math.sign(Number(($('touch-aim') as HTMLInputElement).value)/50-scene.mission.player.lane);else scene.mission.setLane(Number(($('touch-aim') as HTMLInputElement).value)/50);return;}scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
 $('touch-aim').addEventListener('pointerdown',()=>unlockAudio());
 $('touch-cover').addEventListener('click',()=>{if(confrontationChapter)return;if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();touch.toggleCover();updateTouchCover();});
 if(confrontationChapter){
