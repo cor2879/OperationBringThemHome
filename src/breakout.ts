@@ -3,6 +3,7 @@ import {sweptDistance} from './defense.ts';
 export const BREAKOUT_DURATION=150;
 export const FINAL_PURSUIT_TIME=120;
 export const PURSUIT_ARMOR=18;
+export const ENEMY_BULLET_DAMAGE=8;
 // The whole visible truck body is vulnerable, including its roof and side panels.
 export const PLAYER_TRUCK={left:GUN.x-35,right:GUN.x+35,top:GUN.y-45,bottom:GUN.y+46};
 function truckImpact(from:Point,to:Point):Point|undefined{
@@ -77,7 +78,7 @@ export class BreakoutMission extends RescueMission{
       const targets=this.units.filter(u=>u.alive&&(b.side==='player'||u.kind==='friendlytruck')).filter(u=>sweptDistance(u,previous,b)<(u.kind==='motorcycle'?14:u.kind==='pursuit'?30:25)).sort((a,c)=>distance(a,previous)-distance(c,previous));
       const u=targets[0];if(u){b.life=0;u.hp--;this.events.push({kind:'hit',x:u.x,y:u.y});if(u.hp<=0){u.alive=false;if(u.kind==='friendlytruck'){this.lost++;this.events.push({kind:'trafficloss',x:u.x,y:u.y,shooter:b.side});}else{this.kills++;this.events.push({kind:'vehicledestroyed',x:u.x,y:u.y});if(u.id===this.finalId){this.finalCleared=true;this.events.push({kind:'pursuitclear',x:u.x,y:u.y});}}}continue;}
       const impact=b.side==='enemy'?truckImpact(previous,b):undefined;
-      if(impact){b.life=0;this.health-=4;this.damageFlash=.3;this.events.push({kind:'hit',...impact});}
+      if(impact){b.life=0;this.health-=ENEMY_BULLET_DAMAGE;this.damageFlash=.45;this.events.push({kind:'hit',...impact});}
     }
     this.units=this.units.filter(u=>u.alive);this.bullets=this.bullets.filter(b=>b.life>0&&b.x>=0&&b.x<=960&&b.y>=0&&b.y<=600);this.health=Math.max(0,this.health);
     if(this.health<=0||this.lost>=3||(this.time>=BREAKOUT_DURATION&&!this.finalCleared)){this.state='lost';this.events.push({kind:'defeat',...GUN});}

@@ -85,7 +85,7 @@ if(mobileLayout()){
 }
 class RescueScene extends Phaser.Scene{
   mission:RescueMission=breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
-  ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
+  truckHealth!:PhaserType.GameObjects.Text;ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
   constructor(){super('Rescue');scene=this;}
@@ -99,6 +99,7 @@ class RescueScene extends Phaser.Scene{
     const field=this.add.graphics();this.drawField(field);
     this.ink=this.add.graphics();
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
+    this.truckHealth=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf'}).setDepth(11).setVisible(breakoutChapter);
     this.machinegunStatus=this.add.text(23,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffbd70'}).setDepth(10).setVisible(false);
     this.escapeeStatus=this.add.text(610,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffdb96'}).setDepth(10);
     this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
@@ -301,11 +302,12 @@ ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'
     });
     m.bullets.forEach(b=>{g.lineStyle(b.side==='player'?3:2,b.side==='player'?0xffe3a1:0xe47051);g.lineBetween(b.x,b.y,b.x-b.vx*.014,b.y-b.vy*.014);});
     drawConvoyTruck(g,m.angle);
-    if(m.damageFlash>0){g.lineStyle(4,0xff7254,m.damageFlash/.3);g.strokeRect(GUN.x-35,GUN.y-45,70,91);}
+    if(m.damageFlash>0){g.lineStyle(4,0xff7254,m.damageFlash/.45);g.strokeRect(GUN.x-35,GUN.y-45,70,91);}
     if(this.started&&m.state==='playing'){g.lineStyle(1,0xf2d69b,.8);g.strokeCircle(this.aim.x,Math.min(this.aim.y,515),14);}
     for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}
     const remaining=Math.ceil(m.remaining),armor=m.units.find(u=>u.kind==='pursuit');
-    this.hud.setText(`TRUCK ${m.health}%     FRIENDLIES SAFE ${m.rescued}     LOST ${m.lost} / 03
+    this.truckHealth.setText(`TRUCK ${m.health}%`).setColor(m.damageFlash>0?'#ff5e50':m.health<=24?'#ff947c':'#e7e8cf').setScale(1+.12*Math.sin(Math.PI*m.damageFlash/.45));
+    this.hud.setText(`              FRIENDLIES SAFE ${m.rescued}     LOST ${m.lost} / 03
 ${m.reloadTime>0?'RELOADING '+m.reloadTime.toFixed(1)+'s':'AMMO '+m.ammo+' / 24'}     PURSUERS ${m.kills}     ${m.difficulty.toUpperCase()}`);
     this.escapeeStatus.setText(`CHECKPOINT · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`);
     this.machinegunStatus.setVisible(true).setText(m.finalCleared?'FINAL PURSUIT CLEAR':m.finalStarted?'FINAL PURSUER · CLEAR THE ARMOR':m.armorWarning>0?'ARMORED PURSUIT INBOUND':armor?`ARMOR ${armor.hp}/${PURSUIT_ARMOR} · ${armor.phase==='reload'?'RELOADING':'CLOSING IN'}`:'BLUE + CREAM · FRIENDLY TRAFFIC');
