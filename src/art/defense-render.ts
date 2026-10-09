@@ -37,7 +37,7 @@ export function drawArmoredTransport(g:Ink,u:Unit){
   for(let n=-35;n<=35;n+=14){box(g,0x111a13,x+n-5,y+9,11,13);box(g,0x747963,x+n-3,y+11,7,7);}
   box(g,0x34482f,x-46,y-15,92,30);box(g,0x738252,x-40,y-20,80,29);box(g,0xa1ac75,x-35,y-20,70,4);
   box(g,0x53613d,x-37,y-10,74,19);box(g,0x354c36,x+(flip?-38:25),y-13,14,10);
-  box(g,0xd96b45,x-8,y-6,16,4);box(g,0xd96b45,x-2,y-12,4,16);
+  box(g,0xd96b45,x-12,y-9,7,5);box(g,0xd96b45,x-7,y-4,7,5);box(g,0xd96b45,x-2,y+1,7,4);box(g,0xd96b45,x+3,y-4,7,5);box(g,0xd96b45,x+8,y-9,7,5);
   const rear=x+(flip?32:-43);box(g,u.phase==='unload'?0x172319:0x47553a,rear,y-11,10,24);
   if(u.phase==='unload')box(g,0xc69f5d,rear+2,y-8,6,18);
   box(g,0x263725,x-14,y-30,28,13);box(g,0x9aaa77,x-12,y-30,24,4);
