@@ -1,0 +1,23 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {ConfrontationMission,DUEL_LIMIT,DUEL_LANES} from '../src/confrontation.ts';
+const advance=(m:ConfrontationMission,s:number)=>{for(let i=0;i<Math.ceil(s/.025);i++)m.update(.025);};
+const knife=(m:ConfrontationMission,side:'player'|'enemy',y:number)=>m.knives.push({id:99,side,x:side==='player'?m.opponent.x-25:m.player.x+25,y,vx:side==='player'?650:-550,checked:true});
+test('position changes traverse levels and throwing is disabled while in transit',()=>{const m=new ConfrontationMission(()=>.5);m.setLane(0);m.update(.05);assert.ok(m.player.y<320&&m.player.y>190);m.fire();assert.equal(m.player.windup,0);advance(m,.5);assert.equal(m.player.y,DUEL_LANES[0]);m.fire();assert.ok(m.player.windup>0);advance(m,.25);assert.equal(m.throws,1);assert.ok(m.knives.some(k=>k.side==='player'));});
+test('a throw has wind-up and recovery so holding fire cannot flood the arena',()=>{const m=new ConfrontationMission(()=>.5);m.fire();assert.equal(m.knives.length,0);for(let i=0;i<40;i++){m.fire();m.update(.025);}assert.equal(m.throws,1);m.fire();assert.equal(m.player.windup,0);advance(m,.15);m.fire();assert.ok(m.player.windup>0);});
+test('duck dodges a level knife, drains stamina and requires release to recover',()=>{const m=new ConfrontationMission(()=>.5);m.commandCover(true);m.update(.025);knife(m,'enemy',m.player.y-12);m.update(.05);assert.equal(m.player.health,5);assert.equal(m.dodges,1);m.fire();assert.equal(m.player.windup,0);advance(m,1.2);assert.equal(m.stamina,0);assert.equal(m.player.duck,0);knife(m,'enemy',m.player.y-12);m.update(.05);assert.equal(m.player.health,4);m.commandCover(false);advance(m,.5);assert.ok(m.stamina>0);});
+test('swept knives hit once, hurt the correct fighter and interrupt wind-up',()=>{for(const side of ['player','enemy'] as const){const m=new ConfrontationMission(()=>.5),target=side==='player'?m.opponent:m.player;target.windup=.4;knife(m,side,target.y-12);m.update(.05);assert.equal(target.health,4);assert.equal(target.windup,0);assert.equal(m.health,side==='enemy'?80:100);assert.equal(m.knives.length,0);assert.ok(target.flash>0);const e=m.drainEvents().find(e=>e.kind==='duelhit');assert.equal(e?.shooter,side);advance(m,.1);assert.equal(target.health,4);}});
+test('moving to another height avoids an incoming horizontal knife',()=>{const m=new ConfrontationMission(()=>.5);m.setLane(0);advance(m,.5);knife(m,'enemy',308);m.update(.05);assert.equal(m.player.health,5);});
+test('AI telegraphs, throws and recovers rather than firing constantly',()=>{const m=new ConfrontationMission(()=>.5);advance(m,1.6);assert.ok(m.opponent.windup>0);assert.ok(m.drainEvents().some(e=>e.kind==='duelwarning'));assert.equal(m.knives.filter(k=>k.side==='enemy').length,0);advance(m,.8);assert.ok(m.opponent.recovery>0);assert.ok(m.knives.some(k=>k.side==='enemy'));});
+test('five hits win or lose, timeout loses, and finished results freeze',()=>{for(const side of ['player','enemy'] as const){const m=new ConfrontationMission(()=>.5);for(let i=0;i<5;i++){knife(m,side,308);m.update(.05);}assert.equal(m.state,side==='player'?'won':'lost');const t=m.time;m.update(1);m.fire();m.setLane(2);assert.equal(m.time,t);assert.equal(m.player.lane,1);}const m=new ConfrontationMission();m.time=DUEL_LIMIT-.025;m.update(.05);assert.equal(m.state,'lost');});
+test('AI can evade a knife during recovery but cannot duck out of its wind-up',()=>{for(const winding of [false,true]){const m=new ConfrontationMission(()=>0);m.opponent.windup=winding?.7:0;m.opponent.recovery=1;m.knives=[{id:3,side:'player',x:600,y:308,vx:650,checked:false}];m.update(.05);assert.equal(m.opponent.duck>0,!winding);}});
+test('an attentive simulated player can win at each AI difficulty',()=>{
+ for(const difficulty of ['rookie','regular','veteran'] as const){let seed=13;const m=new ConfrontationMission(()=>{seed=seed*16807%2147483647;return seed/2147483647;},difficulty);
+  for(let i=0;i<4800&&m.state==='playing';i++){
+   m.setLane(m.opponent.lane);
+   const danger=m.knives.some(k=>k.side==='enemy'&&k.x>m.player.x&&k.x<m.player.x+175&&Math.abs(k.y-(m.player.y-12))<35);
+   m.commandCover(danger);if(!danger)m.fire();m.update(.025);
+  }
+  assert.equal(m.state,'won',`${difficulty}: ${m.player.health} health, ${m.time}s`);
+ }
+});

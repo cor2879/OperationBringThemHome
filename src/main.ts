@@ -11,6 +11,9 @@ import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
 import {drawDefenseField,drawStretcherTeam,drawConvoy,drawArmoredTransport} from './art/defense-render.ts';
 import {BreakoutMission,BREAKOUT_DURATION,PURSUIT_ARMOR} from './breakout.ts';
 import {drawRoad,drawRoadVehicle,drawConvoyTruck} from './art/breakout-render.ts';
+import {ConfrontationMission,DUEL_LANES} from './confrontation.ts';
+import {drawConfrontation} from './art/confrontation-render.ts';
+const confrontationChapter=new URLSearchParams(location.search).get('chapter')==='confrontation';
 const breakoutChapter=new URLSearchParams(location.search).get('chapter')==='breakout';
 const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
 declare const Phaser: typeof PhaserType;
@@ -21,7 +24,7 @@ let firing=false;
 const touch=new TouchControls();
 const mobileLayout=()=>matchMedia('(pointer:coarse), (max-width:650px)').matches||new URLSearchParams(location.search).get('controls')==='touch';
 document.body.classList.toggle('touch-layout',mobileLayout());
-function updateTouchCover(){ $('touch-cover').textContent=touch.cover?'GO!':'TAKE COVER';$('touch-cover').setAttribute('aria-pressed',String(touch.cover)); }
+function updateTouchCover(){ $('touch-cover').textContent=confrontationChapter?'HOLD DUCK':touch.cover?'GO!':'TAKE COVER';$('touch-cover').setAttribute('aria-pressed',String(touch.cover)); }
 const coverPointers=new Set<number>();
 let soundOn=true,voiceOn=true;
 try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
@@ -78,13 +81,26 @@ if(breakoutChapter){
   overlay.querySelector('h2 + p')!.innerHTML='Reach the bridge checkpoint in 2½ minutes.<br>Protect your truck and destroy the final armored pursuer.<br>Motorcycles arrive in packs; jeeps and armor fire in bursts.<br>Blue-and-cream trucks with orange flags are friendly.<br>Losing three friendly trucks ends the escape.';
   document.querySelector('.intel')!.innerHTML='<p><b>THE BREAKOUT</b><br>Man the rear gun of the rescue truck. Hold off the pursuit for two and a half minutes and clear the final armored vehicle before the bridge checkpoint.</p><p><b>THE PURSUIT</b><br>Motorcycles arrive in packs of two or three and take one hit each. Jeeps take three hits; armored pursuers take eighteen. Red aiming lines warn of incoming shots. Green reload bars give you an opening. Reload your own gun between attacks.</p><p><b>FRIENDLY TRAFFIC</b><br>Blue-and-cream bodies, orange roof panels, and orange flags mark friendly convoy trucks. Let them pass safely before firing through their lane. Friendly fire is enabled; enemy bullets can hit them too. Three trucks lost ends the mission.</p>';
 }
+if(confrontationChapter){
+  document.body.classList.add('confrontation-chapter');
+  document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 04<br><b>THE CONFRONTATION</b><br>PLAYABLE PROTOTYPE';
+  document.querySelector('.cabinet')!.setAttribute('aria-label','Knife throwing duel');
+  overlay.querySelector('h2')!.textContent='ONE LAST GUARD. ONE WAY OUT.';
+  overlay.querySelector('h2 + p')!.innerHTML='The convoy is clear. Face the commandant across the fortress gap.<br>Land five knife hits before he does. You have two minutes.<br>Move HIGH / MIDDLE / LOW to line up your throw.<br>A raised arm and red line warn of his next knife.<br>Duck briefly or change height. Release DUCK to recover stamina.';
+  overlay.querySelector('small')!.textContent='W/S or ↑/↓: position · Space: throw · Hold C: duck';
+  document.querySelector('.toolbar > span')!.innerHTML='<b>W/S or ↑/↓</b> move &nbsp; <b>SPACE</b> throw &nbsp; <b>C</b> duck &nbsp; <b>P</b> pause<br>Move to the same height as your opponent to line up a throw.';
+  document.querySelector('.touch-aim label')!.textContent='POSITION · HIGH / LOW';
+  $('touch-aim').setAttribute('aria-label','Duel position high or low');
+  $('touch-fire').textContent='HOLD THROW';$('touch-cover').textContent='HOLD DUCK';$('touch-reload').hidden=true;
+  document.querySelector('.intel')!.innerHTML='<p><b>THE CONFRONTATION</b><br>The commandant guards the route to extraction. Face him across three levels of the fortress. Land five hits within two minutes to clear the way for the helicopter.</p><p><b>READ THE WIND-UP</b><br>Knives fly horizontally from your current height. His raised arm and red line mark an incoming throw. Change levels or duck as the knife arrives. He can dodge too, but winding up leaves him exposed.</p><p><b>TIME YOUR RESPONSE</b><br>You cannot throw while ducking or moving between levels. Duck stamina lasts just over a second and recovers when released. The slider changes height; hold THROW and hold DUCK independently. Keyboard: W/S, Space and C.</p>';
+}
 let scene:RescueScene;
 if(mobileLayout()){
-  if(!defenseChapter&&!breakoutChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
-  overlay.querySelector('small')!.textContent=breakoutChapter?'Left thumb: aim slider · Right thumb: hold FIRE / tap RELOAD':'Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
+  if(!defenseChapter&&!breakoutChapter&&!confrontationChapter)overlay.querySelector('h2 + p')!.innerHTML='Bring eight of twelve home in six minutes.<br>One escapee at a time. Orange is friendly; red is hostile.<br>Tap TAKE COVER at a shelter; tap GO! to move.<br>Green bars: reload opening. A bark warns of a dog!';
+  overlay.querySelector('small')!.textContent=confrontationChapter?'Left thumb: position slider · Right thumb: hold THROW / DUCK':breakoutChapter?'Left thumb: aim slider · Right thumb: hold FIRE / tap RELOAD':'Left thumb: aim slider · Right thumb: hold FIRE / tap COVER';
 }
 class RescueScene extends Phaser.Scene{
-  mission:RescueMission=breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
+  mission:RescueMission=confrontationChapter?new ConfrontationMission():breakoutChapter?new BreakoutMission():defenseChapter?new DefenseMission():new RescueMission();started=false;paused=false;ready=false;
   truckHealth!:PhaserType.GameObjects.Text;ink!:PhaserType.GameObjects.Graphics;hud!:PhaserType.GameObjects.Text;machinegunStatus!:PhaserType.GameObjects.Text;escapeeStatus!:PhaserType.GameObjects.Text;
   radio!:PhaserType.GameObjects.Text;radioTime=0;radioCooldown=0;sparks:Spark[]=[];
   aim={x:480,y:220};pointerHeld=false;tick=0;lastState='';
@@ -99,21 +115,21 @@ class RescueScene extends Phaser.Scene{
     const field=this.add.graphics();this.drawField(field);
     this.ink=this.add.graphics();
     this.hud=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf',lineSpacing:8}).setDepth(10);
-    this.truckHealth=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf'}).setDepth(11).setVisible(breakoutChapter);
+    this.truckHealth=this.add.text(20,18,'',{fontFamily:'monospace',fontSize:'17px',color:'#e7e8cf'}).setDepth(11).setVisible(breakoutChapter||confrontationChapter);
     this.machinegunStatus=this.add.text(23,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffbd70'}).setDepth(10).setVisible(false);
     this.escapeeStatus=this.add.text(610,572,'',{fontFamily:'monospace',fontSize:'14px',color:'#ffdb96'}).setDepth(10);
     this.radio=this.add.text(480,86,'',{fontFamily:'monospace',fontSize:'18px',color:'#ffe1a1',backgroundColor:'#101713',padding:{x:14,y:8},align:'center'}).setOrigin(.5).setDepth(10);
     this.input.on('pointerdown',(p:PhaserType.Input.Pointer)=>{
-      if(!this.started||this.paused||this.mission.state!=='playing'||mobileLayout())return;
+      if(!this.started||this.paused||this.mission.state!=='playing'||mobileLayout()||confrontationChapter)return;
       this.focus();unlockAudio();this.aimAt(p.x,p.y);
       if(!matchMedia('(pointer:coarse)').matches)this.pointerHeld=true;
     });
     this.input.on('pointermove',(p:PhaserType.Input.Pointer)=>{
-      if(!this.started||this.paused||mobileLayout())return;
+      if(!this.started||this.paused||mobileLayout()||confrontationChapter)return;
       if(!matchMedia('(pointer:coarse)').matches||p.isDown)this.aimAt(p.x,p.y);
     });
     this.input.on('pointerup',()=>{this.pointerHeld=false;});
-    this.game.canvas.tabIndex=0;this.game.canvas.setAttribute('aria-label','Operation Bring Them Home rescue game');
+    this.game.canvas.tabIndex=0;this.game.canvas.setAttribute('aria-label',confrontationChapter?'The Confrontation knife duel':'Operation Bring Them Home rescue game');
     this.draw();
     this.ready=true;const begin=$('begin') as HTMLButtonElement;begin.disabled=false;begin.textContent='BEGIN OPERATION →';
   }
@@ -122,9 +138,9 @@ class RescueScene extends Phaser.Scene{
   start(){
     if(!this.ready)return;
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
-    this.mission=breakoutChapter?new BreakoutMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
+    this.mission=confrontationChapter?new ConfrontationMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):breakoutChapter?new BreakoutMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     touch.reset();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
-    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
+    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',confrontationChapter?'The convoy is clear. Finish this and get to the helicopter!':breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
@@ -138,9 +154,14 @@ class RescueScene extends Phaser.Scene{
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
   updateStatus(){
-    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
+    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(confrontationChapter?'COMMANDANT DEFEATED':breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':confrontationChapter?'FACING THE COMMANDANT':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
+    if(e.kind==='knifethrow'){tone(e.shooter==='player'?700:420,.08,'triangle',.045);}
+    if(e.kind==='duelwarning'){tone(190,.05,'square',.02);}
+    if(e.kind==='duelhit'){this.burst(e.x,e.y,0xffbd76,12);tone(90,.14,'sawtooth',.04);if(e.shooter==='player')this.callout('COMMANDANT','You will never leave this fortress!',false);else this.callout('CONTROL','Stay sharp. Watch his throwing arm.',false);}
+    if(e.kind==='dueldodge'){tone(500,.07,'triangle',.02);}
+
     if(e.kind==='bikewarning')this.callout('DRIVER',"Motorcycles! They're gaining on us!");
     if(e.kind==='jeepwarning')this.callout('CONTROL','Armed jeep closing in!');
     if(e.kind==='friendlytraffic')this.callout('DRIVER','Friendly truck! Watch your fire!',true);
@@ -179,6 +200,13 @@ class RescueScene extends Phaser.Scene{
     if(!this.paused){
       this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
       if(this.started&&this.mission.state==='playing'){
+        if(this.mission instanceof ConfrontationMission){
+          const m=this.mission;
+          m.commandCover(held.has('KeyC')||coverPointers.size>0||touch.cover);
+          const up=held.has('KeyW')||held.has('ArrowUp')||held.has('KeyA'),down=held.has('KeyS')||held.has('ArrowDown')||held.has('KeyD');
+          if(up!==down&&Math.abs(m.player.y-DUEL_LANES[m.player.lane])<8)m.setLane(m.player.lane+(up?-1:1));
+          if(held.has('Space')||firing||touch.firing)m.fire();
+        }else{
         const cover=held.has('KeyC')||coverPointers.size>0||touch.cover;
         if(this.mission.commandCover(cover))this.callout('SQUAD',cover?(defenseChapter?'Medics, heads down!':'Take cover! Stop at the next shelter!'):'Moving! Cover us!',true);
         $('cover').setAttribute('aria-pressed',String(cover));
@@ -186,6 +214,7 @@ class RescueScene extends Phaser.Scene{
         const direction=(held.has('KeyD')||held.has('ArrowRight')?1:0)-(held.has('KeyA')||held.has('ArrowLeft')?1:0);
         if(direction){this.mission.angle=Phaser.Math.Clamp(this.mission.angle+direction*1.6*dt,-Math.PI+.08,-.08);this.aim={x:GUN.x+Math.cos(this.mission.angle)*380,y:GUN.y+Math.sin(this.mission.angle)*380};}
         if(held.has('Space')||firing||touch.firing||this.pointerHeld)this.mission.fire();
+        }
         this.mission.update(dt);this.mission.drainEvents().forEach(e=>this.handleEvent(e));
         if(this.mission.state!=='playing'&&this.lastState!==this.mission.state){this.lastState=this.mission.state;this.finish();}
       }
@@ -196,9 +225,13 @@ class RescueScene extends Phaser.Scene{
   finish(){
     held.clear();touch.reset();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
+    if(m instanceof ConfrontationMission){
+      this.callout('CONTROL',won?'The route is clear. Get to the helicopter!':'Pull back. The operation is over.',true);
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE COMMANDANT IS DOWN.':'THE CONFRONTATION WAS LOST.'}</h2><p>${won?'The survivors are waiting. The helicopter is your last way home.':m.player.health<=0?'You were caught by the commandant’s knives.':'Time ran out. The route is still blocked.'}</p><div class="report"><span><b>${5-m.opponent.health}</b>HITS LANDED</span><span><b>${m.dodges}</b>KNIVES DODGED</span><span><b>${m.player.health}</b>HEALTH LEFT</span></div><button id="restart">DUEL AGAIN →</button><small>${won?'Next planned: Chapter 05 — Extraction.':'Watch his raised arm. Release DUCK to recover stamina.'}</small>`;return;
+    }
     this.callout('CONTROL',won?(breakoutChapter?'Checkpoint reached. The convoy is safe.':'Extraction confirmed. You brought them home.'):'Pull back. The operation is over.',true);
     if(breakoutChapter){
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY BROKE THROUGH.':'THE ESCAPE WAS STOPPED.'}</h2><p>${won?'The survivors reached the bridge checkpoint.':m.health<=0?'Your rescue truck was disabled.':m.lost>=3?'Three friendly trucks were lost.':'The final armored pursuer reached the bridge.'}</p><div class="report"><span><b>${m.rescued}</b>TRUCKS SAFE</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>PURSUERS</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Next planned: Chapter 04 — The Confrontation.':'Let friendly trucks clear your aim. Use enemy reload windows.'}</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY BROKE THROUGH.':'THE ESCAPE WAS STOPPED.'}</h2><p>${won?'The survivors reached the bridge checkpoint.':m.health<=0?'Your rescue truck was disabled.':m.lost>=3?'Three friendly trucks were lost.':'The final armored pursuer reached the bridge.'}</p><div class="report"><span><b>${m.rescued}</b>TRUCKS SAFE</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>PURSUERS</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Chapter 04 — The Confrontation is ready above.':'Let friendly trucks clear your aim. Use enemy reload windows.'}</small>`;return;
     }
     if(defenseChapter){
       overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY IS AWAY.':'THE LINE WAS BROKEN.'}</h2><p>${won?'The survivors are heading home. You held the outpost.':m.health<=0?'The gun position was overrun.':'Three stretcher teams were lost.'}</p><div class="report"><span><b>${m.rescued}</b>TEAMS SAFE</span><span><b>${m.lost}</b>TEAMS LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>Prioritize sappers. Reload while enemy crews reload.</small>`;return;
@@ -207,7 +240,7 @@ class RescueScene extends Phaser.Scene{
   }
   burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
   drawField(g:PhaserType.GameObjects.Graphics){
-    if(breakoutChapter)return;
+    if(breakoutChapter||confrontationChapter)return;
     if(defenseChapter){
       drawDefenseField(g);
       const label=(x:number,y:number,text:string)=>this.add.text(x,y,text,{fontFamily:'monospace',fontSize:'11px',color:'#e0d6a5',backgroundColor:'#17231c',padding:{x:4,y:3}});
@@ -237,6 +270,15 @@ class RescueScene extends Phaser.Scene{
   }
   draw(){
     const m=this.mission,g=this.ink;g.clear();this.radio.setVisible(this.radioTime>0);
+    if(m instanceof ConfrontationMission){
+      drawConfrontation(g,m);
+      this.hud.setText(`YOU ${m.player.health}/5        DUCK STAMINA`);
+      this.truckHealth.setPosition(666,18).setText(`COMMANDANT ${m.opponent.health}/5`).setColor(m.opponent.flash>0?'#ff8870':'#e7e8cf');
+      this.hud.setColor(m.player.flash>0?'#ff8870':'#e7e8cf');
+      this.machinegunStatus.setVisible(true).setText(m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY');
+      this.escapeeStatus.setText(`TIME ${Math.floor(m.remaining/60)}:${String(Math.ceil(m.remaining%60)).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
+      for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}return;
+    }
     if(m instanceof BreakoutMission){this.drawBreakout(m,g);return;}
     if(m instanceof DefenseMission){this.drawDefense(m,g);return;}
     SHELTERS.forEach((s,i)=>{
@@ -326,9 +368,9 @@ overlay.addEventListener('click',e=>{
   const id=(e.target as HTMLElement).id;
   if(id==='begin'||id==='restart')scene.start();if(id==='resume')scene.setPause(false);
 });
-const controlKeys=new Set(['KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyC','KeyR','KeyP','Escape','Enter']);
+const controlKeys=new Set(['KeyW','KeyS','ArrowUp','ArrowDown','KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyC','KeyR','KeyP','Escape','Enter']);
 document.addEventListener('keydown',e=>{
-  if(e.target===$('touch-aim'))return;
+  if(e.target===$('touch-aim')&&(!confrontationChapter||['ArrowLeft','ArrowRight','Home','End'].includes(e.code)))return;
   if(!scene?.started||scene.mission.state!=='playing'||!controlKeys.has(e.code)||e.ctrlKey||e.metaKey||e.altKey)return;
   e.preventDefault();e.stopPropagation();unlockAudio();held.add(e.code);
   if(!e.repeat){if(e.code==='Space'&&!scene.paused)scene.mission.fire();if(e.code==='KeyR')scene.mission.reload();if(e.code==='KeyP'||e.code==='Escape')scene.setPause(!scene.paused);if(e.code==='Enter'&&scene.paused)scene.setPause(false);}
@@ -340,9 +382,13 @@ window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);touch.firePointers.add(e.pointerId);});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,e=>touch.firePointers.delete((e as PointerEvent).pointerId)));
-$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
+$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;if(scene.mission instanceof ConfrontationMission){scene.mission.setLane(Number(($('touch-aim') as HTMLInputElement).value)/50);return;}scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
 $('touch-aim').addEventListener('pointerdown',()=>unlockAudio());
-$('touch-cover').addEventListener('click',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();touch.toggleCover();updateTouchCover();});
+$('touch-cover').addEventListener('click',()=>{if(confrontationChapter)return;if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();touch.toggleCover();updateTouchCover();});
+if(confrontationChapter){
+  $('touch-cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);$('touch-cover').setAttribute('aria-pressed','true');});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-cover').addEventListener(type,e=>{coverPointers.delete((e as PointerEvent).pointerId);$('touch-cover').setAttribute('aria-pressed','false');}));
+}
 $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
 $('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('cover').addEventListener(type,e=>{coverPointers.delete((e as PointerEvent).pointerId);}));
