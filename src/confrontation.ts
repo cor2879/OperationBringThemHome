@@ -28,7 +28,7 @@ export class ConfrontationMission extends RescueMission{
   override reload(){}
   override fire(){
     const p=this.player;
-    if(this.state!=='playing'||(this.duckHeld&&this.stamina>0)||p.duck>0||p.windup>0||p.recovery>0||Math.abs(p.y-DUEL_LANES[p.lane])>8)return;
+    if(this.state!=='playing'||(this.duckHeld&&this.stamina>0)||p.duck>0||p.windup>0||p.recovery>0)return;
     p.windup=.22;
   }
   private launch(side:'player'|'enemy'){
@@ -47,7 +47,7 @@ export class ConfrontationMission extends RescueMission{
     if(this.duckHeld&&p.windup<=0&&this.stamina>0){p.duck=1;this.stamina=Math.max(0,this.stamina-dt/1.1);}else p.duck=0;
     // Release to recover: holding DUCK forever cannot make the player invulnerable.
     if(!this.duckHeld)this.stamina=Math.min(1,this.stamina+dt*.65);
-    if(!p.duck&&!p.windup)p.y=moveToward(p.y,DUEL_LANES[p.lane],dt*310);
+    if(!p.duck)p.y=moveToward(p.y,DUEL_LANES[p.lane],dt*310);
     e.duck=Math.max(0,e.duck-dt);this.evadeCooldown=Math.max(0,this.evadeCooldown-dt);
     this.think-=dt;
     if(this.think<=0&&e.windup<=0&&e.duck<=0){
