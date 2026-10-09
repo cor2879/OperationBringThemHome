@@ -13,3 +13,5 @@ body.touch-layout .cabinet .touch-controls{display:grid}body.touch-layout .cabin
 .breakout-chapter .chapters a:nth-child(3){background:#3c4d32;border-color:#df9854}.breakout-chapter .cabinet .squad-controls,.breakout-chapter #touch-cover{display:none}.breakout-chapter .touch-actions #touch-fire{height:100%;min-height:100px}
 
 .confrontation-chapter .chapters a:nth-child(4){background:#3c4d32;border-color:#df9854}.confrontation-chapter .cabinet .squad-controls{display:none}.confrontation-chapter .cabinet .touch-controls{display:grid}.confrontation-chapter .touch-actions #touch-fire{background:#486d69}.confrontation-chapter .touch-aim [hidden]{display:none}.confrontation-chapter .mission-stamp b{letter-spacing:2px;font-size:20px}
+.confrontation-chapter .cabinet:fullscreen #game#game{width:min(100vw,calc((100dvh - 280px)*1.6))}
+@media(pointer:coarse) and (orientation:landscape),(max-width:650px) and (orientation:landscape){.confrontation-chapter .cabinet:fullscreen #game#game{width:min(100vw,calc((100dvh - 180px)*1.6))}}
