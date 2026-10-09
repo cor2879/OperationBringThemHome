@@ -34,7 +34,7 @@ export function drawConfrontation(g:Ink,m:ConfrontationMission){
   // Amber lanterns illuminate the duel without obscuring knife silhouettes.
   for(const x of [116,839]){r(g,0x141b1d,x-3,144,6,355);for(const y of [160,290,420]){r(g,0x473e30,x-9,y,18,25);r(g,0xf0b75d,x-5,y+4,10,13);}}
   for(const y of DUEL_LANES){g.lineStyle(1,0x5a6559,.45);for(let x=294;x<670;x+=26)g.lineBetween(x,y+40-52*DUEL_SCALE,x+9,y+40-52*DUEL_SCALE);}
-  if(m.opponent.windup>0){g.lineStyle(2,0xf07e5f,.5);g.lineBetween(245,throwHeight(m.opponent),715,throwHeight(m.opponent));}
+  if(m.opponent.windup>0){g.lineStyle(2,0xf07e5f,.5);g.lineBetween(715,throwHeight(m.opponent),245,throwHeight(m.opponent)+Math.tan(m.enemyTilt)*470);}
   if(m.player.windup>0){g.lineStyle(1,0xf3d597,.6);g.lineBetween(225,throwHeight(m.player),735,throwHeight(m.player)+Math.tan(Math.sign(m.throwDirection)*KNIFE_TILT)*510);}
   fighter(g,m.player,false,m.time);fighter(g,m.opponent,true,m.time);
   for(const k of m.knives){g.save();g.translateCanvas(k.x,k.y);g.rotateCanvas(Math.atan2(k.vy,k.vx));r(g,k.side==='player'?0xf7dfa3:0xff967b,-8,-1.5,16,3);r(g,0xa28b65,-11,-3,4,6);g.restore();}

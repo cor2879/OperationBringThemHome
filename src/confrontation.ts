@@ -1,7 +1,7 @@
 import {RescueMission,type Point} from './model.ts';
 export const DUEL_LANES=[190,320,450] as const;
 export const DUEL_LIMIT=120;
-export const DUEL_SCALE=.72;
+export const DUEL_SCALE=.54;
 export const KNIFE_TILT=Math.PI/15; // Twelve degrees reaches the next level without a steep arc.
 export const throwHeight=(u:Duelist)=>u.y+40-52*DUEL_SCALE;
 function intersectsFighter(a:Point,b:Point,u:Duelist){
@@ -20,7 +20,7 @@ const moveToward=(value:number,target:number,amount:number)=>value<target?Math.m
 export class ConfrontationMission extends RescueMission{
   player:Duelist={x:195,y:320,lane:1,health:5,duck:0,windup:0,recovery:0,flash:0};
   opponent:Duelist={x:765,y:320,lane:1,health:5,duck:0,windup:0,recovery:1.5,flash:0};
-  throwDirection=0;knives:Knife[]=[];stamina=1;duckHeld=false;throws=0;dodges=0;private serial=0;private think=0;private evadeCooldown=0;private randomDuel:()=>number;
+  throwDirection=0;enemyTilt=0;knives:Knife[]=[];stamina=1;duckHeld=false;throws=0;dodges=0;private serial=0;private think=0;private evadeCooldown=0;private randomDuel:()=>number;
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){super(random,difficulty);this.randomDuel=random;}
   get remaining(){return Math.max(0,DUEL_LIMIT-this.time);}
   setLane(lane:number){if(this.state==='playing')this.player.lane=Math.max(0,Math.min(2,Math.round(lane)));}
@@ -34,7 +34,7 @@ export class ConfrontationMission extends RescueMission{
   private launch(side:'player'|'enemy'){
     const p=side==='player'?this.player:this.opponent;
     const speed=side==='player'?650:this.difficulty==='rookie'?480:this.difficulty==='veteran'?620:550;
-    const tilt=side==='player'?Math.sign(this.throwDirection)*KNIFE_TILT:0;
+    const tilt=side==='player'?Math.sign(this.throwDirection)*KNIFE_TILT:this.enemyTilt;
     this.knives.push({id:this.serial++,side,x:p.x+(side==='player'?24:-24)*DUEL_SCALE,y:throwHeight(p),vx:(side==='player'?1:-1)*speed*Math.cos(tilt),vy:speed*Math.sin(tilt),checked:false});
     p.recovery=side==='player'?.85:this.difficulty==='rookie'?1.7:this.difficulty==='veteran'?1:1.35;
     if(side==='player')this.throws++;
@@ -51,11 +51,16 @@ export class ConfrontationMission extends RescueMission{
     e.duck=Math.max(0,e.duck-dt);this.evadeCooldown=Math.max(0,this.evadeCooldown-dt);
     this.think-=dt;
     if(this.think<=0&&e.windup<=0&&e.duck<=0){
-      const aimLane=this.randomDuel()<.85?p.lane:Math.floor(this.randomDuel()*3);
+      // Sometimes hold a neighboring balcony and attack across levels instead of chasing.
+      const flankChance=this.difficulty==='rookie'?.25:this.difficulty==='veteran'?.45:.35;
+      const neighbors=[p.lane-1,p.lane+1].filter(lane=>lane>=0&&lane<3);
+      const aimLane=this.randomDuel()<flankChance?neighbors[Math.floor(this.randomDuel()*neighbors.length)]:p.lane;
       e.lane=aimLane;this.think=this.difficulty==='rookie'?1.2:this.difficulty==='veteran'?.55:.85;
     }
     if(e.windup<=0&&e.duck<=0)e.y=moveToward(e.y,DUEL_LANES[e.lane],dt*(this.difficulty==='veteran'?280:230));
     if(e.recovery<=0&&e.windup<=0&&e.duck<=0&&Math.abs(e.y-DUEL_LANES[e.lane])<8){
+      // Commit to the visible aim when winding up, so movement can evade it.
+      this.enemyTilt=Math.max(-KNIFE_TILT,Math.min(KNIFE_TILT,Math.atan2(throwHeight(p)-throwHeight(e),e.x-24*DUEL_SCALE-p.x)));
       e.windup=this.difficulty==='rookie'?.9:this.difficulty==='veteran'?.5:.7;
       this.events.push({kind:'duelwarning',x:e.x,y:e.y});
     }

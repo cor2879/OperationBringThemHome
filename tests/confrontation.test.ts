@@ -30,3 +30,11 @@ test('angled knives reach an adjacent platform and use swept collision on the sm
  for(const direction of [-1,1]){const m=new ConfrontationMission(()=>.5);m.opponent.lane=1+direction;m.opponent.y=DUEL_LANES[m.opponent.lane];m.opponent.windup=3;m.throwDirection=direction;m.fire();advance(m,1.1);assert.equal(m.opponent.health,4);}
  const m=new ConfrontationMission(()=>.5);knife(m,'enemy',m.player.y-30);m.update(.05);assert.equal(m.player.health,5,'a shot above the smaller head misses');
 });
+
+test('AI aims in both vertical directions and commits to its telegraphed angle',()=>{
+ for(const lane of [0,2]){const m=new ConfrontationMission(()=>.1,'rookie');m.player.lane=lane;m.player.y=DUEL_LANES[lane];m.opponent.recovery=0;m.update(.025);assert.ok(m.opponent.windup>0);const tilt=m.enemyTilt;assert.equal(Math.sign(tilt),lane===0?-1:1);assert.ok(Math.abs(tilt)<=Math.PI/15);m.setLane(1);advance(m,1);const k=m.knives.find(k=>k.side==='enemy');assert.ok(k);assert.equal(Math.sign(k.vy),Math.sign(tilt));assert.equal(m.enemyTilt,tilt);}
+});
+test('AI chooses neighboring balconies and its angled knives can hit across levels',()=>{
+ const flanking=new ConfrontationMission(()=>.1);flanking.update(.025);assert.notEqual(flanking.opponent.lane,flanking.player.lane);
+ for(const lane of [0,2]){const m=new ConfrontationMission(()=>.1,'rookie');m.player.lane=lane;m.player.y=DUEL_LANES[lane];m.opponent.recovery=0;m.update(.025);advance(m,2.2);assert.equal(m.player.health,4);}
+});
