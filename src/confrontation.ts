@@ -33,7 +33,7 @@ export class ConfrontationMission extends RescueMission{
   }
   private launch(side:'player'|'enemy'){
     const p=side==='player'?this.player:this.opponent;
-    const speed=side==='player'?650:this.difficulty==='rookie'?480:this.difficulty==='veteran'?620:550;
+    const speed=side==='player'?800:this.difficulty==='rookie'?620:this.difficulty==='veteran'?800:720;
     const tilt=side==='player'?Math.sign(this.throwDirection)*KNIFE_TILT:this.enemyTilt;
     this.knives.push({id:this.serial++,side,x:p.x+(side==='player'?24:-24)*DUEL_SCALE,y:throwHeight(p),vx:(side==='player'?1:-1)*speed*Math.cos(tilt),vy:speed*Math.sin(tilt),checked:false});
     p.recovery=side==='player'?.85:this.difficulty==='rookie'?1.7:this.difficulty==='veteran'?1:1.35;
@@ -47,7 +47,7 @@ export class ConfrontationMission extends RescueMission{
     if(this.duckHeld&&p.windup<=0&&this.stamina>0){p.duck=1;this.stamina=Math.max(0,this.stamina-dt/1.1);}else p.duck=0;
     // Release to recover: holding DUCK forever cannot make the player invulnerable.
     if(!this.duckHeld)this.stamina=Math.min(1,this.stamina+dt*.65);
-    if(!p.duck)p.y=moveToward(p.y,DUEL_LANES[p.lane],dt*310);
+    if(!p.duck)p.y=moveToward(p.y,DUEL_LANES[p.lane],dt*220);
     e.duck=Math.max(0,e.duck-dt);this.evadeCooldown=Math.max(0,this.evadeCooldown-dt);
     this.think-=dt;
     if(this.think<=0&&e.windup<=0&&e.duck<=0){
@@ -57,7 +57,7 @@ export class ConfrontationMission extends RescueMission{
       const aimLane=this.randomDuel()<flankChance?neighbors[Math.floor(this.randomDuel()*neighbors.length)]:p.lane;
       e.lane=aimLane;this.think=this.difficulty==='rookie'?1.2:this.difficulty==='veteran'?.55:.85;
     }
-    if(e.windup<=0&&e.duck<=0)e.y=moveToward(e.y,DUEL_LANES[e.lane],dt*(this.difficulty==='veteran'?280:230));
+    if(e.windup<=0&&e.duck<=0)e.y=moveToward(e.y,DUEL_LANES[e.lane],dt*(this.difficulty==='veteran'?220:190));
     if(e.recovery<=0&&e.windup<=0&&e.duck<=0&&Math.abs(e.y-DUEL_LANES[e.lane])<8){
       // Commit to the visible aim when winding up, so movement can evade it.
       this.enemyTilt=Math.max(-KNIFE_TILT,Math.min(KNIFE_TILT,Math.atan2(throwHeight(p)-throwHeight(e),e.x-24*DUEL_SCALE-p.x)));
