@@ -22,9 +22,9 @@ test('a motorcycle pack waits for enough capacity instead of arriving one at a t
 test('enemy shots damage the full visible truck body, not only the gun mount',()=>{
   for(const x of [GUN.x-34,GUN.x,GUN.x+34]){
     const m=new BreakoutMission();m.bullets=[{x,y:GUN.y-60,vx:0,vy:600,side:'enemy',life:1}];m.update(.05);
-    assert.equal(m.health,94);assert.equal(m.bullets.length,0);assert.equal(m.damageFlash,.45);
+    assert.equal(m.health,96);assert.equal(m.bullets.length,0);assert.equal(m.damageFlash,.45);
     const hit=m.drainEvents().find(e=>e.kind==='hit');assert.equal(hit?.x,x);assert.equal(hit?.y,GUN.y-45);
-    advance(m,.5);assert.equal(m.health,94);assert.equal(m.damageFlash,0);
+    advance(m,.5);assert.equal(m.health,96);assert.equal(m.damageFlash,0);
   }
 });
 test('shots crossing a truck side or rear damage it, while near misses and player fire do not',()=>{
@@ -32,7 +32,7 @@ test('shots crossing a truck side or rear damage it, while near misses and playe
     {x:GUN.x-50,y:GUN.y+30,vx:600,vy:0},
     {x:GUN.x+50,y:GUN.y+30,vx:-600,vy:0},
     {x:GUN.x,y:GUN.y+60,vx:0,vy:-600}
-  ]){const m=new BreakoutMission();m.bullets=[{...b,side:'enemy',life:1}];m.update(.05);assert.equal(m.health,94);}
+  ]){const m=new BreakoutMission();m.bullets=[{...b,side:'enemy',life:1}];m.update(.05);assert.equal(m.health,96);}
   for(const side of ['enemy','player'] as const){const m=new BreakoutMission();m.bullets=[{x:GUN.x+(side==='enemy'?36:0),y:GUN.y-60,vx:0,vy:600,side,life:1}];m.update(.05);assert.equal(m.health,100);assert.equal(m.damageFlash,0);}
 });
 test('actual enemy bursts damage an unattended truck at every difficulty',()=>{

@@ -3,7 +3,7 @@ import {sweptDistance} from './defense.ts';
 export const BREAKOUT_DURATION=150;
 export const FINAL_PURSUIT_TIME=120;
 export const PURSUIT_ARMOR=18;
-export const ENEMY_BULLET_DAMAGE=6;
+export const ENEMY_BULLET_DAMAGE=4;
 // The whole visible truck body is vulnerable, including its roof and side panels.
 export const PLAYER_TRUCK={left:GUN.x-35,right:GUN.x+35,top:GUN.y-45,bottom:GUN.y+46};
 function truckImpact(from:Point,to:Point):Point|undefined{
