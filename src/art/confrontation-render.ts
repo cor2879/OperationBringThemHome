@@ -10,7 +10,7 @@ function fighter(g:Ink,u:Duelist,enemy:boolean,time:number){
   r(g,0xb99871,x-9,head,18,19);r(g,enemy?0x9e493c:0xdddcc6,x-13,head-5,26,9);
   r(g,0x293035,x+face*6,head+7,3,3);r(g,0x665540,x-face*9,head+2,4,11);
   r(g,coat,x-16,body,32,duck?14:33);r(g,enemy?0xcf7956:0xdacba1,x-16,body+2,32,5);
-  r(g,0x273b39,x-17,y+(duck?31:15),13,23);r(g,0x273b39,x+4,y+(duck?31:15),13,23);
+  r(g,0x273b39,x-17,y+(duck?31:15),13,duck?7:23);r(g,0x273b39,x+4,y+(duck?31:15),13,duck?7:23);
   r(g,0x151e22,x-20,y+34,18,8);r(g,0x151e22,x+3,y+34,18,8);
   const raised=u.windup>0,handY=raised?head-8:body+10;
   r(g,coat,x+face*(raised?12:17)-5,handY,12,17);r(g,0xb99871,x+face*(raised?20:26)-4,handY+9,8,9);

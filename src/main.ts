@@ -272,11 +272,12 @@ class RescueScene extends Phaser.Scene{
     const m=this.mission,g=this.ink;g.clear();this.radio.setVisible(this.radioTime>0);
     if(m instanceof ConfrontationMission){
       drawConfrontation(g,m);
-      this.hud.setText(`YOU ${m.player.health}/5        DUCK STAMINA`);
+      this.hud.setText(`YOU ${m.player.health}/5                   DUCK STAMINA`);
       this.truckHealth.setPosition(666,18).setText(`COMMANDANT ${m.opponent.health}/5`).setColor(m.opponent.flash>0?'#ff8870':'#e7e8cf');
       this.hud.setColor(m.player.flash>0?'#ff8870':'#e7e8cf');
       this.machinegunStatus.setVisible(true).setText(m.player.duck>0?'DUCKING · RELEASE TO RECOVER':m.player.windup>0?'THROWING':m.player.recovery>0?'KNIFE READY IN '+m.player.recovery.toFixed(1)+'s':'SPACE / THROW · READY');
-      this.escapeeStatus.setText(`TIME ${Math.floor(m.remaining/60)}:${String(Math.ceil(m.remaining%60)).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
+      const duelSeconds=Math.ceil(m.remaining);
+      this.escapeeStatus.setText(`TIME ${Math.floor(duelSeconds/60)}:${String(duelSeconds%60).padStart(2,'0')} · ${m.opponent.windup>0?'KNIFE INCOMING!':'WATCH HIS ARM'}`);
       for(const s of this.sparks){g.fillStyle(s.color,Math.min(1,s.life*5));g.fillRect(s.x,s.y,3,3);}return;
     }
     if(m instanceof BreakoutMission){this.drawBreakout(m,g);return;}
