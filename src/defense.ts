@@ -93,7 +93,7 @@ export class DefenseMission extends RescueMission{
   }
   private armorTarget(u:Unit):Point{
     const friendly=this.units.filter(p=>p.alive&&p.kind==='prisoner'&&p.shelter===undefined).sort((a,b)=>distance(u,a)-distance(u,b))[0];
-    return friendly?{x:friendly.x+13,y:friendly.y}:{...GUN};
+    return friendly?{x:Math.min(AID_STATION.x,friendly.x+13+friendly.speed*2),y:friendly.y}:{...GUN};
   }
   private move(u:Unit,target:Point,dt:number){const dist=distance(u,target),travel=Math.min(dist,u.speed*dt);u.x+=(target.x-u.x)/Math.max(1,dist)*travel;u.y+=(target.y-u.y)/Math.max(1,dist)*travel;}
   private shoot(u:Unit,target:Point,speed:number){const spread=this.difficulty==='rookie'?110:this.difficulty==='veteran'?45:75;const a=Math.atan2(target.y-u.y,target.x-u.x+(this.rng()-.5)*spread);this.bullets.push({x:u.x,y:u.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,side:'enemy',life:3});this.events.push({kind:'enemyburst',x:u.x,y:u.y});}
