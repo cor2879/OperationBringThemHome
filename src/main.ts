@@ -184,7 +184,7 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='helidamage'){this.burst(e.x,e.y,0xf5b966,10);tone(75,.12,'sawtooth',.035);}
     if(e.kind==='airsupply')tone(750,.18,'triangle',.04);
     if(e.kind==='airboss')this.callout('CONTROL','Enemy gunship! Use the rockets!',true);
-    if(e.kind==='airclear')this.callout('CONTROL','Landing zone is clear. Bring them home!',true);
+    if(e.kind==='airclear')this.callout('CONTROL',"Congratulations, you've cleared enemy territory. Bring them home!",true);
     if(e.kind==='knifethrow'){tone(e.shooter==='player'?700:420,.08,'triangle',.045);}
     if(e.kind==='duelwarning'){tone(190,.05,'square',.02);}
     if(e.kind==='duelhit'){this.burst(e.x,e.y,0xffbd76,12);tone(90,.14,'sawtooth',.04);const m=this.mission;if(m instanceof ConfrontationMission&&!m.death){if(e.shooter==='player'&&this.radioCooldown<=0)this.callout('COMMANDANT',this.duelTaunt++%2===0?'You will never leave this fortress!':"You can’t hurt meeee!",false);else if(e.shooter==='enemy')this.callout('CONTROL','Stay sharp. Watch his throwing arm.',false);}}

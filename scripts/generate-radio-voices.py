@@ -10,7 +10,7 @@ LINES = {
     'Anti-aircraft site! Take out the radar!': 'rms',
     'Everyone is aboard. Get us out of here!': 'rms',
     'Enemy gunship! Use the rockets!': 'rms',
-    'Landing zone is clear. Bring them home!': 'rms',
+    "Congratulations, you've cleared enemy territory. Bring them home!": 'rms',
     'Everyone is home. Mission accomplished!': 'rms',
 
     'The convoy is clear. Finish this and get to the helicopter!': 'rms',

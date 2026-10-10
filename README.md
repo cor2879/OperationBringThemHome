@@ -102,3 +102,5 @@ Extraction visual pass (Field Test 27): swept-wing fighters with cockpit glass a
 Field Test 28: paved roads run along both riverbanks. Spawned jeeps and tanks use the same world-space road center as the renderer and follow every bend; gunboats follow the river center. Land scenery stays outside the road corridors, ground vehicle shadows sit closer to their hulls, and vehicles align visually with the local curve. AA/radar sites spawn on dry banks. Enemy health, damage, attack timers and wave counts are unchanged.
 
 Field Test 29: four evenly spaced repair drops replace the two old repair drops. Each adds fifty armor percentage points rather than twelve. C is the primary rocket key, consistent with the other chapters’ action key; R/X remain accepted. Enemy difficulty settings are unchanged.
+
+Field Test 30: the gunship-clear radio call and its bundled Flite recording now say “Congratulations, you've cleared enemy territory. Bring them home!”
