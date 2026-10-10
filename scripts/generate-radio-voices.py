@@ -7,6 +7,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LINES = {
+    'Anti-aircraft site! Take out the radar!': 'rms',
     'Everyone is aboard. Get us out of here!': 'rms',
     'Enemy gunship! Use the rockets!': 'rms',
     'Landing zone is clear. Bring them home!': 'rms',
