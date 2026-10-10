@@ -151,6 +151,7 @@ class RescueScene extends Phaser.Scene{
     this.game.canvas.tabIndex=0;this.game.canvas.setAttribute('aria-label',extractionChapter?'Extraction helicopter shooter':confrontationChapter?'The Confrontation knife duel':'Operation Bring Them Home rescue game');
     this.draw();
     this.ready=true;const begin=$('begin') as HTMLButtonElement;begin.disabled=false;begin.textContent='BEGIN OPERATION →';
+    if(new URLSearchParams(location.search).get('newgame')==='1'&&!extractionChapter&&!confrontationChapter&&!breakoutChapter&&!defenseChapter){const url=new URL(location.href);url.searchParams.delete('newgame');history.replaceState(null,'',url);this.start();}
   }
   focus(){this.game.canvas.focus({preventScroll:true});}
   aimAt(x:number,y:number){if(this.mission instanceof ExtractionMission){this.mission.target={x:Phaser.Math.Clamp(x,130,830),y:Phaser.Math.Clamp(y,240,510)};return;}this.aim={x,y};this.mission.angle=Phaser.Math.Clamp(Math.atan2(y-GUN.y,x-GUN.x),-Math.PI+.08,-.08);}
@@ -263,7 +264,7 @@ class RescueScene extends Phaser.Scene{
     const won=this.mission.state==='won',m=this.mission;
     if(m instanceof ExtractionMission){
       this.callout('CONTROL',won?'Everyone is home. Mission accomplished!':'Pull back. The operation is over.',true);
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT / CHAPTER 05</p><h2>${won?'THEY ARE HOME.':'THE HELICOPTER WAS LOST.'}</h2><p>${won?'The survivors made it. The five-chapter operation is complete.':m.health<=0?'The helicopter took too much damage.':'The command gunship blocked the escape.'}</p><div class="report"><span><b>${m.score}</b>SCORE</span><span><b>${m.kills}</b>TARGETS CLEARED</span><span><b>${m.health}%</b>ARMOR LEFT</span></div><button id="restart">FLY AGAIN →</button><small>All five chapters are playable above.</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT / CHAPTER 05</p><h2>${won?'THEY ARE HOME.':'THE HELICOPTER WAS LOST.'}</h2><p>${won?'The survivors made it. The five-chapter operation is complete.':m.health<=0?'The helicopter took too much damage.':'The command gunship blocked the escape.'}</p><div class="report"><span><b>${m.score}</b>SCORE</span><span><b>${m.kills}</b>TARGETS CLEARED</span><span><b>${m.health}%</b>ARMOR LEFT</span></div><div class="report-actions"><button id="new-game">New Game</button><button id="restart">FLY AGAIN →</button></div><small>New Game starts a fresh operation from Chapter 1.</small>`;return;
     }
     if(m instanceof ConfrontationMission){
       this.callout('CONTROL',won?'The route is clear. Get to the helicopter!':'Pull back. The operation is over.',true);
@@ -415,6 +416,7 @@ if(typeof Phaser==='undefined'){
 }
 overlay.addEventListener('click',e=>{
   const id=(e.target as HTMLElement).id;
+  if(id==='new-game'){stopVoice();stopScream();location.assign('./?newgame=1');return;}
   if(id==='begin'||id==='restart')scene.start();if(id==='resume')scene.setPause(false);
 });
 const controlKeys=new Set(['KeyW','KeyS','ArrowUp','ArrowDown','KeyA','KeyD','ArrowLeft','ArrowRight','Space','KeyC','KeyR','KeyX','KeyP','Escape','Enter']);

@@ -104,3 +104,5 @@ Field Test 28: paved roads run along both riverbanks. Spawned jeeps and tanks us
 Field Test 29: four evenly spaced repair drops replace the two old repair drops. Each adds fifty armor percentage points rather than twelve. C is the primary rocket key, consistent with the other chapters’ action key; R/X remain accepted. Enemy difficulty settings are unchanged.
 
 Field Test 30: the gunship-clear radio call and its bundled Flite recording now say “Congratulations, you've cleared enemy territory. Bring them home!”
+
+Field Test 31: Extraction results include New Game, which reloads a fresh Chapter 1 and starts the operation once the field is ready. Fly Again still retries Extraction. The new-game launch flag is removed from the URL after it is consumed, so later reloads show the normal briefing.
