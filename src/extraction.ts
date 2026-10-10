@@ -1,8 +1,9 @@
 import {RescueMission,type Point} from './model.ts';
 import {sweptDistance} from './defense.ts';
+import {EXTRACTION_SCROLL_SPEED,extractionRiverX,extractionRoadX,extractionWorldY} from './extraction-terrain.ts';
 export const EXTRACTION_DURATION=100;
 export const EXTRACTION_BOSS_TIME=72;
-export type AirEnemy=Point & {id:number;kind:'jeep'|'tank'|'boat'|'fighter'|'gunship'|'aa'|'radar';hp:number;maxHp:number;age:number;fireTimer:number;warning:number;aim:Point;anchor:number;site?:number};
+export type AirEnemy=Point & {id:number;kind:'jeep'|'tank'|'boat'|'fighter'|'gunship'|'aa'|'radar';hp:number;maxHp:number;age:number;fireTimer:number;warning:number;aim:Point;anchor:number;site?:number;roadSide?:-1|1};
 export type AirShot=Point & {vx:number;vy:number;side:'player'|'enemy';rocket:boolean;life:number;damage:number;missile?:boolean};
 export type Supply=Point & {kind:'repair'|'rockets'};
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
@@ -16,7 +17,7 @@ export class ExtractionMission extends RescueMission{
   override reload(){}
   override fire(){if(this.state!=='playing'||this.departing||this.fireCooldown>0)return;this.fireCooldown=.14;for(const dx of [-10,10])this.shots.push({x:this.helicopter.x+dx,y:this.helicopter.y-28,vx:0,vy:-690,side:'player',rocket:false,life:1,damage:1});this.events.push({kind:'shot',...this.helicopter});}
   rocket(){if(this.state!=='playing'||this.departing||this.rockets<=0||this.rocketCooldown>0)return;this.rockets--;this.rocketCooldown=.45;this.shots.push({x:this.helicopter.x,y:this.helicopter.y-30,vx:0,vy:-530,side:'player',rocket:true,life:1.5,damage:6});this.events.push({kind:'airrocket',...this.helicopter});}
-  private spawn(kind:AirEnemy['kind'],x:number,y=65){const hp=kind==='aa'?12:kind==='radar'?8:kind==='gunship'?56:kind==='tank'?10:kind==='boat'?7:3;const e:AirEnemy={id:this.serial++,kind,x,y,hp,maxHp:hp,age:0,fireTimer:.3+this.rng()*.4,warning:0,aim:{...this.helicopter},anchor:x};this.foes.push(e);return e;}
+  private spawn(kind:AirEnemy['kind'],x:number,y=65){const hp=kind==='aa'?12:kind==='radar'?8:kind==='gunship'?56:kind==='tank'?10:kind==='boat'?7:3;const e:AirEnemy={id:this.serial++,kind,x,y,hp,maxHp:hp,age:0,fireTimer:.3+this.rng()*.4,warning:0,aim:{...this.helicopter},anchor:x};if(kind==='jeep'||kind==='tank'){e.roadSide=x<480?-1:1;e.x=extractionRoadX(extractionWorldY(y,this.time),e.roadSide);}else if(kind==='boat')e.x=extractionRiverX(extractionWorldY(y,this.time));this.foes.push(e);return e;}
   private hurt(amount:number){if(this.invulnerable>0)return;this.health=Math.max(0,this.health-amount);this.invulnerable=.28;this.damageFlash=.45;this.events.push({kind:'helidamage',...this.helicopter});}
   private destroy(e:AirEnemy){this.kills++;this.score+=e.kind==='aa'?300:e.kind==='radar'?200:e.kind==='gunship'?1000:e.kind==='tank'?150:100;this.events.push({kind:'vehicledestroyed',x:e.x,y:e.y});if(e.kind==='gunship'){this.bossCleared=true;this.events.push({kind:'airclear',x:e.x,y:e.y});}}
   override update(dt:number){
@@ -34,7 +35,8 @@ export class ExtractionMission extends RescueMission{
     this.installationClock-=dt;
     if(this.installationClock<=0&&this.time<EXTRACTION_BOSS_TIME-4&&this.foes.filter(e=>e.kind==='aa'||e.kind==='radar').length<4){
       const left=this.installations%2===0,site=this.installations++;
-      const battery=this.spawn('aa',left?225:735),radar=this.spawn('radar',left?290:670,-5);
+      const bank=left?-1:1,center=extractionRiverX(extractionWorldY(30,this.time));
+      const battery=this.spawn('aa',center+bank*255),radar=this.spawn('radar',center+bank*190,-5);
       battery.site=radar.site=site;battery.fireTimer=.1;radar.fireTimer=100;
       this.installationClock=8;this.events.push({kind:'airinstallation',x:battery.x,y:battery.y});
     }
@@ -42,9 +44,9 @@ export class ExtractionMission extends RescueMission{
     if(this.time>=EXTRACTION_BOSS_TIME&&!this.bossStarted){this.bossStarted=true;this.spawn('gunship',480);this.events.push({kind:'airboss',x:480,y:90});}
     for(const e of this.foes){if(e.hp<=0)continue;e.age+=dt;
       const ground=e.kind==='aa'||e.kind==='radar';
-      if(ground)e.y+=155*dt;
+      if(ground)e.y+=EXTRACTION_SCROLL_SPEED*dt;
       else if(e.kind==='gunship'){e.y=Math.min(155,e.y+65*dt);e.x=480+Math.sin(e.age*.8)*210;}
-      else{e.y+=(e.kind==='fighter'?92:57)*dt;if(e.kind==='fighter')e.x=e.anchor+Math.sin(e.age*2)*60;}
+      else{e.y+=(e.kind==='fighter'?92:57)*dt;if(e.kind==='fighter')e.x=e.anchor+Math.sin(e.age*2)*60;else if(e.roadSide)e.x=extractionRoadX(extractionWorldY(e.y,this.time),e.roadSide);else if(e.kind==='boat')e.x=extractionRiverX(extractionWorldY(e.y,this.time));}
       const supported=e.kind==='aa'&&this.foes.some(r=>r.hp>0&&r.kind==='radar'&&r.site===e.site&&r.y<570);
       e.fireTimer-=dt;if(e.kind!=='radar'&&e.y>110&&(ground?e.y<530:e.y<(e.kind==='fighter'?530:this.helicopter.y-45))&&e.fireTimer<=0&&e.warning<=0){
         e.warning=e.kind==='aa'?.55:e.kind==='gunship'?.5:.4;

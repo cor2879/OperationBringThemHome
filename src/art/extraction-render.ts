@@ -1,10 +1,10 @@
 import type {GameObjects} from 'phaser';
 import {EXTRACTION_DURATION,type ExtractionMission,type AirEnemy} from '../extraction.ts';
+import {EXTRACTION_SCROLL_SPEED,EXTRACTION_ROAD_WIDTH,extractionRiverX as river,extractionRoadX,extractionWorldY} from '../extraction-terrain.ts';
 type Ink=GameObjects.Graphics;
 const box=(g:Ink,c:number,x:number,y:number,w:number,h:number)=>{g.fillStyle(c);g.fillRect(Math.round(x),Math.round(y),w,h);};
 const poly=(g:Ink,c:number,points:number[][],alpha=1)=>{g.fillStyle(c,alpha);g.fillPoints(points.map(([x,y])=>({x,y})),true);};
 const hash=(seed:number)=>{const n=Math.sin(seed*127.1+311.7)*43758.5453;return n-Math.floor(n);};
-const river=(worldY:number)=>480+Math.sin(worldY*.004)*65;
 function tree(g:Ink,x:number,y:number,size:number,seed:number){
   g.fillStyle(0x101f18,.35);g.fillEllipse(x+8,y+13,size*2.1,size*1.3);
   box(g,0x5c5234,x-2,y,4,size*.9);
@@ -19,16 +19,17 @@ function building(g:Ink,x:number,y:number,variant:number){
   if(variant>0.5){box(g,0x3a4538,x+13,y-25,10,12);box(g,0xb4aa82,x+13,y-25,10,3);}else{box(g,0x4d5d49,x-25,y-44,45,8);for(let i=0;i<4;i++)box(g,0x9c9774,x-23+i*11,y-43,2,6);}
 }
 function terrain(g:Ink,time:number){
-  box(g,0x293e2b,0,0,960,600);const scroll=time*155;
+  box(g,0x293e2b,0,0,960,600);const scroll=time*EXTRACTION_SCROLL_SPEED;
   // Stable world seeds and one scroll speed keep every feature attached to the ground.
   for(let row=Math.floor(-scroll/6)-1;row<=Math.ceil((600-scroll)/6);row++){
     const wy=row*6,y=wy+scroll,c=river(wy);
     box(g,0x655f3b,c-127,y,254,7);box(g,0x8b8050,c-117,y,234,7);box(g,0x284c53,c-110,y,220,7);box(g,0x426368,c-110,y,4,7);box(g,0x1e3c43,c+106,y,4,7);
+    for(const side of [-1,1] as const){const road=extractionRoadX(wy,side);box(g,0x706b4e,road-41,y,82,7);box(g,0x53574a,road-EXTRACTION_ROAD_WIDTH/2,y,EXTRACTION_ROAD_WIDTH,7);box(g,0xb1aa7e,road-33,y,2,7);box(g,0xb1aa7e,road+31,y,2,7);if(((row%10)+10)%10<5)box(g,0xc0b27a,road-1,y,2,7);}
     if(row%7===0){const r=hash(row);box(g,0x3b6269,c-83+r*70,y+2,22+r*25,2);box(g,0x32585f,c+8+r*54,y+4,30,2);}
     if(row%5===0)for(let side=-1;side<=1;side+=2){const x=c+side*(140+hash(row+side)*280);box(g,0x354a30,x,y,5+hash(row)*10,3);box(g,0x435337,x+19,y-7,4,2);}
   }
   for(let cell=Math.floor((-scroll-100)/105);cell<=Math.ceil((700-scroll)/105);cell++)for(const side of [-1,1]){
-    const seed=cell*17+side*53,wy=cell*105+hash(seed)*45,y=wy+scroll,c=river(wy),x=c+side*(170+hash(seed+2)*170),r=hash(seed+3);
+    const seed=cell*17+side*53,wy=cell*105+hash(seed)*45,y=wy+scroll,c=river(wy),x=c+side*(310+hash(seed+2)*55),r=hash(seed+3);
     if(r>.76){building(g,x,y,hash(seed+4));box(g,0x57603b,x-36,y+42,22,17);box(g,0x99885a,x-36,y+42,22,3);box(g,0x363e2b,x-25,y+45,3,13);}
     else{tree(g,x,y,15+hash(seed+5)*9,seed);if(r<.42)tree(g,x+side*35,y+31,12+hash(seed+6)*7,seed+8);}
     const rockX=c+side*(132+hash(seed+9)*14);poly(g,0x797955,[[rockX-7,y+58],[rockX-4,y+51],[rockX+5,y+50],[rockX+10,y+57],[rockX+6,y+62],[rockX-3,y+63]]);box(g,0xa19c6b,rockX-2,y+52,6,2);
@@ -74,7 +75,7 @@ function installation(g:Ink,m:ExtractionMission,e:AirEnemy){
   else{box(g,0x24352c,x-20,y-15,40,34);box(g,0x808b67,x-17,y-18,34,30);box(g,0xaeb493,x-15,y-18,30,3);g.save();g.translateCanvas(x,y-5);g.rotateCanvas(m.time*1.8);g.lineStyle(3,0xd4d5ad,1);g.strokeEllipse(0,0,52,26);g.lineStyle(1,0xa7b594,1);for(const dx of [-16,-8,0,8,16])g.lineBetween(dx,-10,dx,10);g.lineBetween(-25,0,25,0);box(g,0xe0d9b1,-4,-4,8,8);g.restore();box(g,Math.floor(m.time*3)%2?0xa4e9a7:0x579e77,x-4,y+21,8,5);}
 }
 function vehicle(g:Ink,e:AirEnemy){
-  const {x,y}=e;g.fillStyle(0x12251e,.45);g.fillEllipse(x+6,y+12,52,49);
+  const {x,y}=e;g.fillStyle(0x12251e,.4);g.fillEllipse(x+3,y+5,50,46);
   if(e.kind==='boat'){
     g.lineStyle(2,0x7c9b91,.5);g.lineBetween(x-18,y-25,x-28,y-48);g.lineBetween(x+18,y-25,x+28,y-48);g.lineStyle(1,0x597f7e,.6);g.lineBetween(x-15,y-39,x+15,y-39);
     poly(g,0x192d31,[[x-19,y-30],[x+19,y-30],[x+23,y+10],[x+12,y+28],[x,y+37],[x-12,y+28],[x-23,y+10]]);poly(g,0xa9a183,[[x-15,y-27],[x+15,y-27],[x+18,y+9],[x+9,y+25],[x,y+32],[x-9,y+25],[x-18,y+9]]);
@@ -91,7 +92,7 @@ function vehicle(g:Ink,e:AirEnemy){
 }
 export function drawExtraction(g:Ink,m:ExtractionMission){
   terrain(g,m.time);
-  for(const e of m.foes){if(e.kind==='fighter')fighter(g,e);else if(e.kind==='gunship')aircraft(g,m,e);else if(e.kind==='aa'||e.kind==='radar')installation(g,m,e);else vehicle(g,e);
+  for(const e of m.foes){if(e.kind==='fighter')fighter(g,e);else if(e.kind==='gunship')aircraft(g,m,e);else if(e.kind==='aa'||e.kind==='radar')installation(g,m,e);else {const wy=extractionWorldY(e.y,m.time),angle=-Math.atan((river(wy+8)-river(wy-8))/16);g.save();g.translateCanvas(e.x,e.y);g.rotateCanvas(angle);const dx=e.aim.x-e.x,dy=e.aim.y-e.y,c=Math.cos(angle),s=Math.sin(angle);vehicle(g,{...e,x:0,y:0,aim:{x:dx*c+dy*s,y:dy*c-dx*s}});g.restore();}
     if(e.hp<e.maxHp*.4){g.fillStyle(0x858774,.32);g.fillCircle(e.x+7,e.y-14,7);g.fillCircle(e.x+12,e.y-25,5);}
     if(e.warning>0){g.lineStyle(1,0xff805c,.7);g.lineBetween(e.x,e.y,e.aim.x,e.aim.y);g.lineStyle(2,0xffb281,.8);g.strokeCircle(e.aim.x,e.aim.y,21);for(const side of [-1,1]){g.lineBetween(e.aim.x+side*16,e.aim.y,e.aim.x+side*27,e.aim.y);g.lineBetween(e.aim.x,e.aim.y+side*16,e.aim.x,e.aim.y+side*27);}}
     if(e.maxHp>3){box(g,0x142728,e.x-25,e.y-43,50,4);box(g,0xe0a35c,e.x-25,e.y-43,50*e.hp/e.maxHp,4);}
