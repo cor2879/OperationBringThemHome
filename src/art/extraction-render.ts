@@ -29,7 +29,6 @@ export function drawExtraction(g:Ink,m:ExtractionMission){
     const bridge=cell*1500-120+scroll;if(bridge>600||bridge+52<0)continue;
     box(g,0x655f4d,0,bridge,960,52);box(g,0xbbb392,0,bridge,960,5);box(g,0xb8b090,0,bridge+47,960,5);for(let x=0;x<960;x+=80)box(g,0xceb985,x,bridge+24,35,3);
   }
-  if(m.time>EXTRACTION_DURATION-12){const y=110+(m.time-(EXTRACTION_DURATION-12))*7;box(g,0x283c32,280,y,400,150);g.lineStyle(3,0xdcc792,.8);g.strokeRect(340,y+18,280,115);box(g,0xdcc792,453,y+36,9,75);box(g,0xdcc792,495,y+36,9,75);box(g,0xdcc792,453,y+68,51,9);}
   for(const e of m.foes){const x=e.x,y=e.y;box(g,0x1a302b,x-20,y+10,45,27);
     if(e.kind==='aa'||e.kind==='radar'){
       box(g,0x726d56,x-43,y-36,86,72);box(g,0x4c5140,x-38,y-31,76,62);g.lineStyle(1,0xc5b48a,.6);g.strokeRect(x-43,y-36,86,72);

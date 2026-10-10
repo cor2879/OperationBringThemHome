@@ -104,14 +104,14 @@ if(extractionChapter){
   document.querySelector('.mission-stamp')!.innerHTML='CHAPTER 05<br><b>EXTRACTION</b><br>PLAYABLE PROTOTYPE';
   document.querySelector('.cabinet')!.setAttribute('aria-label','Helicopter extraction shooter');
   overlay.querySelector('h2')!.textContent='GET EVERYONE HOME.';
-  overlay.querySelector('h2 + p')!.innerHTML='Fly the attack helicopter down the river to the extraction zone.<br>Move in four directions. Twin cannons fire straight ahead.<br>Destroy convoys, gunboats, enemy aircraft and fortified anti-aircraft sites. Red lines warn of incoming fire.<br>Three rockets blast groups and armor; one recharges every eight seconds.<br>Collect repair and rocket supplies. Destroy the command gunship, then reach the landing zone.';
+  overlay.querySelector('h2 + p')!.innerHTML='Fly the attack helicopter down the river to the extraction zone.<br>Move in four directions. Twin cannons fire straight ahead.<br>Destroy convoys, gunboats, enemy aircraft and fortified anti-aircraft sites. Red lines warn of incoming fire.<br>Three rockets blast groups and armor; one recharges every eight seconds.<br>Collect repair and rocket supplies. Destroy the command gunship, then fly clear of the combat zone.';
   overlay.querySelector('small')!.textContent='WASD / arrows: fly · Space: cannons · R or X: rocket · P: pause';
   document.querySelector('.toolbar > span')!.innerHTML='<b>WASD / arrows</b> fly &nbsp; <b>SPACE</b> cannons &nbsp; <b>R / X</b> rocket &nbsp; <b>P</b> pause<br>Or hold click and steer with the mouse. Touch: flight pad + FIRE / ROCKET.';
   document.querySelector('.touch-aim label')!.textContent='FLIGHT PAD · MOVE IN FOUR DIRECTIONS';
   $('touch-aim').hidden=true;$('touch-reload').hidden=true;
   document.querySelector('.touch-aim')!.insertAdjacentHTML('beforeend','<div id="flight-pad" role="group" aria-label="Helicopter flight pad"><span class="flight-axis"></span><span id="flight-nub"></span><span class="flight-hint">DRAG TO FLY</span></div>');
   $('touch-cover').textContent='FIRE ROCKET';
-  document.querySelector('.intel')!.innerHTML='<p><b>THE LAST FLIGHT</b><br>Cover the survivors from the air. Follow the river for 100 seconds and destroy the command gunship to open the extraction zone. The helicopter has 100% armor.</p><p><b>WATCH THE WARNINGS</b><br>Ground vehicles, gunboats and fighter pairs fire at your last position. Fortified anti-aircraft batteries fire faster missile salvos, and their radar predicts your movement. Destroy the radar to weaken its linked battery. Red lines show their locked aim. Keep moving, dodge the salvos, and save rockets for heavy targets. The final gunship spreads its fire more widely when damaged.</p><p><b>STAY IN THE AIR</b><br>Green cross crates restore 18% armor. Gold rocket crates add two rockets, up to three. Rockets also recharge every eight seconds and explode across nearby targets. Cannons have unlimited ammunition. Touch: drag the flight pad while holding FIRE, and tap ROCKET.</p>';
+  document.querySelector('.intel')!.innerHTML='<p><b>THE LAST FLIGHT</b><br>Cover the survivors from the air. Follow the river for 100 seconds and destroy the command gunship to escape the combat zone. The helicopter has 100% armor.</p><p><b>WATCH THE WARNINGS</b><br>Ground vehicles and gunboats fire at your last position. Fighter groups and the command gunship lead your movement, and fighters can fire as they pass you. Fortified anti-aircraft batteries fire faster missile salvos, and their radar predicts your movement. Destroy the radar to weaken its linked battery. Red lines show their locked aim. Keep moving, dodge the salvos, and save rockets for heavy targets. The final gunship spreads its fire more widely when damaged.</p><p><b>STAY IN THE AIR</b><br>Green cross crates restore 12% armor. Gold rocket crates add two rockets, up to three. Rockets also recharge every eight seconds and explode across nearby targets. Cannons have unlimited ammunition. Touch: drag the flight pad while holding FIRE, and tap ROCKET.</p>';
 }
 let scene:RescueScene;
 if(mobileLayout()){
@@ -173,7 +173,7 @@ class RescueScene extends Phaser.Scene{
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
   }
   updateStatus(){
-    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(extractionChapter?'EVERYONE HOME':confrontationChapter?'COMMANDANT DEFEATED':breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':extractionChapter?'FLYING TO EXTRACTION':confrontationChapter?'FACING THE COMMANDANT':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
+    $('mission-status').textContent=!this.started?'AWAITING YOUR COMMAND':this.paused?'OPERATION PAUSED':this.mission.state==='won'?(extractionChapter?'EVERYONE HOME':confrontationChapter?'COMMANDANT DEFEATED':breakoutChapter?'CHECKPOINT REACHED':'EXTRACTION COMPLETE'):this.mission.state==='lost'?'OPERATION LOST':extractionChapter?(this.mission instanceof ExtractionMission&&this.mission.departing?'FLYING HOME':'FLYING TO EXTRACTION'):confrontationChapter?'FACING THE COMMANDANT':breakoutChapter?'DEFENDING THE CONVOY':defenseChapter?'HOLDING THE OUTPOST':'COVERING THE ESCAPE';
   }
   handleEvent(e:MissionEvent){
     if(e.kind==='duelround'||e.kind==='duelstart'){held.clear();coverPointers.clear();$('touch-cover').setAttribute('aria-pressed','false');touch.reset();firing=false;this.pointerHeld=false;($('touch-aim') as HTMLInputElement).value='50';updateTouchCover();if(e.kind==='duelround')tone(e.shooter==='player'?700:160,.2,'triangle',.04);else this.callout('COMMANDANT',"You can’t hurt meeee!",true);}
@@ -263,7 +263,7 @@ class RescueScene extends Phaser.Scene{
     const won=this.mission.state==='won',m=this.mission;
     if(m instanceof ExtractionMission){
       this.callout('CONTROL',won?'Everyone is home. Mission accomplished!':'Pull back. The operation is over.',true);
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT / CHAPTER 05</p><h2>${won?'THEY ARE HOME.':'THE HELICOPTER WAS LOST.'}</h2><p>${won?'The survivors made it. The five-chapter operation is complete.':m.health<=0?'The helicopter took too much damage.':'The command gunship held the landing zone.'}</p><div class="report"><span><b>${m.score}</b>SCORE</span><span><b>${m.kills}</b>TARGETS CLEARED</span><span><b>${m.health}%</b>ARMOR LEFT</span></div><button id="restart">FLY AGAIN →</button><small>All five chapters are playable above.</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT / CHAPTER 05</p><h2>${won?'THEY ARE HOME.':'THE HELICOPTER WAS LOST.'}</h2><p>${won?'The survivors made it. The five-chapter operation is complete.':m.health<=0?'The helicopter took too much damage.':'The command gunship blocked the escape.'}</p><div class="report"><span><b>${m.score}</b>SCORE</span><span><b>${m.kills}</b>TARGETS CLEARED</span><span><b>${m.health}%</b>ARMOR LEFT</span></div><button id="restart">FLY AGAIN →</button><small>All five chapters are playable above.</small>`;return;
     }
     if(m instanceof ConfrontationMission){
       this.callout('CONTROL',won?'The route is clear. Get to the helicopter!':'Pull back. The operation is over.',true);
@@ -314,7 +314,7 @@ class RescueScene extends Phaser.Scene{
       drawExtraction(g,m);
       this.hud.setText(`HELICOPTER ${m.health}%       ROCKETS ${m.rockets}/3`).setColor(m.damageFlash>0?'#ff8870':'#e7e8cf');
       this.truckHealth.setVisible(false);
-      this.machinegunStatus.setVisible(true).setText(m.bossCleared?'GUNSHIP DOWN · REACH THE LANDING ZONE':m.bossStarted?'COMMAND GUNSHIP · CLEAR THE LANDING ZONE':m.foes.some(e=>e.kind==='radar')?'RADAR ACTIVE · CLEAR THE GROUND SITES':`TWIN CANNONS · SCORE ${m.score}`);
+      this.machinegunStatus.setVisible(true).setText(m.departing?'CLEAR OF THE FORTRESS · BRINGING THEM HOME':m.bossCleared?'GUNSHIP DOWN · COMPLETE THE FLIGHT':m.bossStarted?'COMMAND GUNSHIP · CLEAR THE ESCAPE ROUTE':m.foes.some(e=>e.kind==='radar')?'RADAR ACTIVE · CLEAR THE GROUND SITES':`TWIN CANNONS · SCORE ${m.score}`);
       this.escapeeStatus.setText(`HOME ${Math.round(Math.min(1,m.time/EXTRACTION_DURATION)*100)}% · ARMOR ${m.health}%`);
       for(const p of this.sparks){g.fillStyle(p.color,Math.min(1,p.life*5));g.fillRect(p.x,p.y,4,4);}return;
     }
