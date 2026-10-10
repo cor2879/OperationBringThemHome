@@ -8,6 +8,9 @@ import { RadioVoice } from './audio/radio.ts';
 import { MusicPlayer } from './audio/music.ts';
 import extractionMusicUrl from './audio/music/extraction.mp3';
 import rescueMusicUrl from './audio/music/rescue.mp3';
+import defenseMusicUrl from './audio/music/hold-the-line.mp3';
+import breakoutMusicUrl from './audio/music/breakout.mp3';
+import confrontationMusicUrl from './audio/music/confrontation.mp3';
 import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
@@ -38,7 +41,7 @@ let soundOn=true,voiceOn=true,musicOn=true;
 try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';musicOn=localStorage.getItem('obth-music')!=='off';}catch{}
 const musicElement=document.createElement('audio');musicElement.id='soundtrack';musicElement.hidden=true;document.body.append(musicElement);
 const music=new MusicPlayer(musicElement);music.setEnabled(musicOn);music.setTrack(extractionMusicUrl);
-const stageMusic=extractionChapter?extractionMusicUrl:!confrontationChapter&&!breakoutChapter&&!defenseChapter?rescueMusicUrl:undefined;
+const stageMusic=extractionChapter?extractionMusicUrl:confrontationChapter?confrontationMusicUrl:breakoutChapter?breakoutMusicUrl:defenseChapter?defenseMusicUrl:rescueMusicUrl;
 let audio:AudioContext|undefined;
 let screamBuffer:AudioBuffer|undefined;
 let screamLoading:Promise<void>|undefined;
