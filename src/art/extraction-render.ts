@@ -4,11 +4,31 @@ type Ink=GameObjects.Graphics;
 const box=(g:Ink,c:number,x:number,y:number,w:number,h:number)=>{g.fillStyle(c);g.fillRect(Math.round(x),Math.round(y),w,h);};
 export function drawExtraction(g:Ink,m:ExtractionMission){
   box(g,0x344a36,0,0,960,600);const scroll=m.time*155;
-  for(let y=-80;y<650;y+=30){const yy=((y+scroll)%730+730)%730-80,c=480+Math.sin((y-scroll)*.004)*65;box(g,0x6c6a43,c-121,yy,242,31);box(g,0x25494d,c-108,yy,216,31);box(g,0x3b6261,c-95+Math.sin(y)*15,yy,50,3);box(g,0x3b6261,c+35,yy+17,48,2);}
-  for(let i=0;i<20;i++){const x=45+(i*173%880),y=((i*83+scroll*.8)%620)-20;if(x>330&&x<650)continue;box(g,0x243b2b,x-7,y+3,21,21);box(g,0x526544,x-10,y,19,19);box(g,0x66734a,x-8,y,8,5);}
-  for(let i=0;i<7;i++){const x=i%2?725:155,y=((i*150+scroll)%1100)-180;box(g,0x4d513a,x-50,y,94,75);box(g,0x948873,x-34,y+12,65,41);box(g,0x655e4d,x-29,y+17,55,31);box(g,0x272f2a,x-17,y+30,12,18);box(g,0xba9a5d,x+6,y+24,11,8);}
-  // Roads and bridge crossings pass beneath the helicopter.
-  const bridge=(scroll%1500)-120;if(bridge>80&&bridge<580){box(g,0x655f4d,0,bridge,960,52);box(g,0xbbb392,0,bridge,960,5);box(g,0xb8b090,0,bridge+47,960,5);for(let x=0;x<960;x+=80)box(g,0xceb985,x,bridge+24,35,3);}
+  // All ground features share one world coordinate and one scroll speed.
+  // The river curve belongs to the world, so adjacent strips always meet.
+  const river=(worldY:number)=>480+Math.sin(worldY*.004)*65;
+  const first=Math.floor(-scroll/12)-1,last=Math.ceil((600-scroll)/12);
+  for(let row=first;row<=last;row++){
+    const worldY=row*12,yy=worldY+scroll,c=river(worldY);
+    box(g,0x6c6a43,c-125,yy,250,13);box(g,0x25494d,c-110,yy,220,13);
+    if(row%4===0){box(g,0x3b6261,c-75,yy+3,40,2);box(g,0x3b6261,c+35,yy+8,29,2);}
+  }
+  const cellFirst=Math.floor(-scroll/150)-1,cellLast=Math.ceil((600-scroll)/150);
+  for(let cell=cellFirst;cell<=cellLast;cell++){
+    const worldY=cell*150,y=worldY+scroll,c=river(worldY),hash=((cell*173)%91+91)%91;
+    for(const side of [-1,1]){
+      const x=c+side*(185+hash*.9);
+      box(g,0x3e5137,x-55,y-20,110,82);
+      if(cell%3===0){box(g,0x4d513a,x-45,y,90,65);box(g,0x948873,x-30,y+10,60,39);box(g,0x655e4d,x-25,y+15,50,29);box(g,0x272f2a,x-15,y+27,11,17);box(g,0xba9a5d,x+7,y+21,10,8);}
+      else for(let j=0;j<3;j++){const tx=x+(j-1)*32,ty=y+j*21;box(g,0x243b2b,tx-8,ty+5,24,24);box(g,0x526544,tx-12,ty,24,24);box(g,0x66734a,tx-9,ty+2,10,6);}
+      box(g,0x657052,c+side*147-4,y+95,8,5);
+    }
+  }
+  // Bridges enter from above and leave below, without popping inside the field.
+  for(let cell=Math.floor((-scroll-80)/1500);cell<=Math.ceil((600-scroll)/1500);cell++){
+    const bridge=cell*1500-120+scroll;if(bridge>600||bridge+52<0)continue;
+    box(g,0x655f4d,0,bridge,960,52);box(g,0xbbb392,0,bridge,960,5);box(g,0xb8b090,0,bridge+47,960,5);for(let x=0;x<960;x+=80)box(g,0xceb985,x,bridge+24,35,3);
+  }
   if(m.time>EXTRACTION_DURATION-12){const y=110+(m.time-(EXTRACTION_DURATION-12))*7;box(g,0x283c32,280,y,400,150);g.lineStyle(3,0xdcc792,.8);g.strokeRect(340,y+18,280,115);box(g,0xdcc792,453,y+36,9,75);box(g,0xdcc792,495,y+36,9,75);box(g,0xdcc792,453,y+68,51,9);}
   for(const e of m.foes){const x=e.x,y=e.y;box(g,0x1a302b,x-20,y+10,45,27);
     if(e.kind==='aa'||e.kind==='radar'){
