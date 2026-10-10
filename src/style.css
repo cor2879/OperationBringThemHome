@@ -19,3 +19,47 @@ body.touch-layout .cabinet .touch-controls{display:grid}body.touch-layout .cabin
 .extraction-chapter .chapters a:nth-child(5){background:#3c4d32;border-color:#df9854}.extraction-chapter .cabinet .squad-controls{display:none}.extraction-chapter .touch-aim [hidden]{display:none}.extraction-chapter .touch-actions #touch-fire{background:#486d69}.extraction-chapter #touch-cover{background:#975e38}.extraction-chapter #flight-pad{height:122px;border:1px solid #6b7f69;background:radial-gradient(circle,#354f42,#1b2e25);position:relative;touch-action:none;user-select:none;overflow:hidden;border-radius:8px}.flight-axis{position:absolute;inset:12px;background:linear-gradient(transparent 49%,#66795f 49%,#66795f 51%,transparent 51%),linear-gradient(90deg,transparent 49%,#66795f 49%,#66795f 51%,transparent 51%);opacity:.5}#flight-nub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:#d6aa65;border:3px solid #f1d397;box-shadow:0 3px 12px #1119}.flight-hint{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;color:#b7c4a2;pointer-events:none}.extraction-chapter .mission-stamp b{font-size:23px}.extraction-chapter .cabinet:fullscreen #game#game{width:min(100vw,calc((100dvh - 285px)*1.6))}
 
 .report-actions{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}.briefing .report-actions button{margin:4px}
+
+/* Phone landscape is a self-contained cabinet, with thumb controls beside the field.
+   dvh follows the browser chrome; safe-area padding leaves room for phone notches. */
+@media (orientation:landscape) and (max-height:600px){
+  body.touch-layout{overflow:hidden;overscroll-behavior:none}
+  body.touch-layout>header,body.touch-layout main>:not(.cabinet){display:none}
+  body.touch-layout main{padding:0;max-width:none}
+  body.touch-layout .cabinet{
+    --rail:clamp(88px,13vw,130px);
+    position:fixed;inset:0;width:100%;height:100dvh;border:0;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--rail);
+    grid-template-rows:24px minmax(0,1fr) 40px;gap:0;justify-content:normal;
+    background:#101613;
+  }
+  body.touch-layout .cabinet .status-bar{grid-column:1/-1;grid-row:1;padding:4px 8px;font-size:8px;min-width:0}
+  body.touch-layout .cabinet #game#game{
+    grid-column:2;grid-row:2;align-self:center;justify-self:center;min-width:0;min-height:0;
+    width:min(calc(100dvw - 2 * var(--rail) - env(safe-area-inset-left) - env(safe-area-inset-right)),calc((100dvh - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 1.6))!important;
+    height:auto!important;aspect-ratio:960/600;flex:none;
+  }
+  body.touch-layout .cabinet .touch-controls{display:contents}
+  body.touch-layout .cabinet .touch-aim{grid-column:1;grid-row:2;display:flex;flex-direction:column;align-self:stretch;justify-content:center;gap:8px;padding:8px;min-width:0}
+  body.touch-layout .cabinet .touch-aim label{font-size:8px;letter-spacing:0;text-align:center}
+  body.touch-layout .cabinet .touch-aim input{height:44px;min-width:0}
+  body.touch-layout .cabinet .touch-aim button{min-height:44px;padding:8px 4px;font-size:9px}
+  body.touch-layout .cabinet .touch-actions{grid-column:3;grid-row:2;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:8px;min-width:0}
+  body.touch-layout .cabinet .touch-actions #touch-fire{height:auto;min-height:80px;padding:8px 4px;font-size:12px;letter-spacing:1px}
+  body.touch-layout .cabinet .touch-actions #touch-cover{min-height:56px;padding:8px 4px;font-size:10px;letter-spacing:0}
+  body.touch-layout .cabinet .toolbar{grid-column:1/-1;grid-row:3;flex-direction:row;justify-content:center;padding:3px 8px;gap:0;min-width:0}
+  body.touch-layout .cabinet .toolbar>div{gap:5px;flex-wrap:nowrap;justify-content:center}
+  body.touch-layout .cabinet .toolbar button{min-height:32px;padding:6px 8px;font-size:8px;letter-spacing:0}
+  body.touch-layout .cabinet .briefing{padding:8px;overflow-y:auto;justify-content:flex-start}
+  body.touch-layout .cabinet .briefing h2{font-size:clamp(18px,3vw,28px);margin:3px 0 6px}
+  body.touch-layout .cabinet .briefing p{font-size:10px;line-height:1.4;margin:4px 0}
+  body.touch-layout .cabinet .briefing .eyebrow{font-size:8px}
+  body.touch-layout .cabinet .briefing small{font-size:8px;margin-top:5px;line-height:1.4}
+  body.touch-layout .cabinet .briefing button{padding:9px 12px;font-size:10px;margin:4px}
+  body.touch-layout .cabinet .difficulty{margin:5px;gap:8px;font-size:8px;flex-shrink:0}
+  body.touch-layout .cabinet .difficulty select{padding:6px;font-size:9px}
+  body.touch-layout .cabinet .report{gap:15px;margin:5px;flex-shrink:0}
+  body.touch-layout .cabinet .report b{font-size:24px}
+  body.touch-layout .cabinet #flight-pad{height:112px;flex-shrink:0}
+}
