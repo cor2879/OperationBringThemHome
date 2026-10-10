@@ -3,6 +3,7 @@ import {sweptDistance} from './defense.ts';
 import {EXTRACTION_SCROLL_SPEED,extractionRiverX,extractionRoadX,extractionWorldY} from './extraction-terrain.ts';
 export const EXTRACTION_DURATION=100;
 export const EXTRACTION_BOSS_TIME=72;
+export const EXTRACTION_REPAIR_TIMES=[12,34,56,78] as const;
 export type AirEnemy=Point & {id:number;kind:'jeep'|'tank'|'boat'|'fighter'|'gunship'|'aa'|'radar';hp:number;maxHp:number;age:number;fireTimer:number;warning:number;aim:Point;anchor:number;site?:number;roadSide?:-1|1};
 export type AirShot=Point & {vx:number;vy:number;side:'player'|'enemy';rocket:boolean;life:number;damage:number;missile?:boolean};
 export type Supply=Point & {kind:'repair'|'rockets'};
@@ -10,7 +11,7 @@ const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 export class ExtractionMission extends RescueMission{
   helicopter={x:480,y:450};moveX=0;moveY=0;target:Point|undefined;
   foes:AirEnemy[]=[];shots:AirShot[]=[];supplies:Supply[]=[];rockets=3;rocketCharge=0;rocketCooldown=0;damageFlash=0;invulnerable=0;bossStarted=false;bossCleared=false;score=0;departing=false;
-  private rng:()=>number;private serial=0;private spawnClock=1;private wave=0;private supplyClock=18;private installationClock=5;private installations=0;
+  private rng:()=>number;private serial=0;private spawnClock=1;private wave=0;private repairIndex=0;private rocketSupplyClock=43;private installationClock=5;private installations=0;
   constructor(random:()=>number=Math.random,difficulty:'rookie'|'regular'|'veteran'='regular'){super(random,difficulty);this.rng=random;}
   get remaining(){return Math.max(0,EXTRACTION_DURATION-this.time);}
   override commandCover(_hold:boolean){return false;}
@@ -40,7 +41,8 @@ export class ExtractionMission extends RescueMission{
       battery.site=radar.site=site;battery.fireTimer=.1;radar.fireTimer=100;
       this.installationClock=8;this.events.push({kind:'airinstallation',x:battery.x,y:battery.y});
     }
-    this.supplyClock-=dt;if(this.supplyClock<=0&&this.time<90){this.supplies.push({x:210+this.rng()*540,y:85,kind:this.time<40||this.time>70?'repair':'rockets'});this.supplyClock=25;}
+    while(this.repairIndex<EXTRACTION_REPAIR_TIMES.length&&this.time>=EXTRACTION_REPAIR_TIMES[this.repairIndex]){this.supplies.push({x:210+this.rng()*540,y:85,kind:'repair'});this.repairIndex++;}
+    this.rocketSupplyClock-=dt;if(this.rocketSupplyClock<=0&&this.time<90){this.supplies.push({x:210+this.rng()*540,y:85,kind:'rockets'});this.rocketSupplyClock+=25;}
     if(this.time>=EXTRACTION_BOSS_TIME&&!this.bossStarted){this.bossStarted=true;this.spawn('gunship',480);this.events.push({kind:'airboss',x:480,y:90});}
     for(const e of this.foes){if(e.hp<=0)continue;e.age+=dt;
       const ground=e.kind==='aa'||e.kind==='radar';
@@ -60,7 +62,7 @@ export class ExtractionMission extends RescueMission{
       if(s.side==='player'){const hit=this.foes.filter(e=>e.hp>0&&sweptDistance(e,prev,s)<(e.kind==='gunship'?43:e.kind==='aa'||e.kind==='radar'?34:e.kind==='fighter'?24:23)).sort((a,b)=>Math.hypot(a.x-prev.x,a.y-prev.y)-Math.hypot(b.x-prev.x,b.y-prev.y))[0];if(hit){s.life=0;const targets=s.rocket?this.foes.filter(e=>e.hp>0&&Math.hypot(e.x-hit.x,e.y-hit.y)<100):[hit];if(s.rocket)this.events.push({kind:'airblast',x:hit.x,y:hit.y});for(const e of targets){e.hp=Math.max(0,e.hp-s.damage);if(e.hp===0)this.destroy(e);else this.events.push({kind:'hit',x:e.x,y:e.y});}}}
       else if(sweptDistance(this.helicopter,prev,s)<17){s.life=0;this.hurt(s.damage);}
     }
-    for(const p of this.supplies){p.y+=68*dt;if(Math.hypot(p.x-this.helicopter.x,p.y-this.helicopter.y)<34){if(p.kind==='repair')this.health=Math.min(100,this.health+12);else this.rockets=Math.min(3,this.rockets+2);this.events.push({kind:'airsupply',x:p.x,y:p.y});p.y=650;}}
+    for(const p of this.supplies){p.y+=68*dt;if(Math.hypot(p.x-this.helicopter.x,p.y-this.helicopter.y)<34){if(p.kind==='repair')this.health=Math.min(100,this.health+50);else this.rockets=Math.min(3,this.rockets+2);this.events.push({kind:'airsupply',x:p.x,y:p.y});p.y=650;}}
     this.foes=this.foes.filter(e=>e.hp>0);this.shots=this.shots.filter(s=>s.life>0&&s.y>75&&s.y<580&&s.x>70&&s.x<890);this.supplies=this.supplies.filter(p=>p.y<580);
     if(this.health<=0||this.time>=130){this.state='lost';this.events.push({kind:'defeat',...this.helicopter});}
     else if(this.time>=EXTRACTION_DURATION&&this.bossCleared){this.departing=true;this.target=undefined;this.moveX=this.moveY=0;this.shots=[];this.foes=[];this.supplies=[];}
