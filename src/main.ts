@@ -2,6 +2,7 @@ import type * as PhaserType from 'phaser';
 import { RescueMission, ROUTE, WALLS, SHELTERS, GUN, MISSION_DURATION, type MissionEvent, type Unit } from './model.ts';
 import './style.css';
 import retroScreamUrl from './audio/retro-scream.ts';
+import { bindPointerSlider } from './pointer-slider.ts';
 import { TouchControls, touchAngle } from './controls.ts';
 import radioClips from './audio/radio-clips.ts';
 import { RadioVoice } from './audio/radio.ts';
@@ -32,7 +33,9 @@ const $=(id:string)=>document.getElementById(id)!;
 const held=new Set<string>();
 let firing=false;
 let flightX=0,flightY=0;
-function resetFlight(){flightX=flightY=0;const nub=document.getElementById('flight-nub');if(nub)nub.style.transform='translate(-50%,-50%)';}
+let resetTouchAim=()=>{};
+let flightPointer:number|undefined;
+function resetFlight(){const id=flightPointer;flightPointer=undefined;const pad=document.getElementById('flight-pad');if(id!==undefined&&pad){try{if(pad.hasPointerCapture(id))pad.releasePointerCapture(id);}catch{}}flightX=flightY=0;const nub=document.getElementById('flight-nub');if(nub)nub.style.transform='translate(-50%,-50%)';}
 const touch=new TouchControls();
 const mobileLayout=()=>matchMedia('(pointer:coarse), (max-width:650px)').matches||new URLSearchParams(location.search).get('controls')==='touch';
 document.body.classList.toggle('touch-layout',mobileLayout());
@@ -51,8 +54,8 @@ const radioVoice=new RadioVoice(radioClips);radioVoice.setEnabled(voiceOn);
 function stopVoice(){radioVoice.stop();}
 function flushVoice(){radioVoice.setBlocked(false);}
 function unlockAudio(){
-  music.unlock();
   audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();
+  music.prepare(audio);music.unlock();
   void radioVoice.prepare(audio);
   screamLoading??=fetch(retroScreamUrl).then(r=>r.arrayBuffer()).then(bytes=>audio!.decodeAudioData(bytes)).then(buffer=>{screamBuffer=buffer;}).catch(()=>{});
 }
@@ -170,7 +173,7 @@ class RescueScene extends Phaser.Scene{
     if(!this.ready)return;
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=extractionChapter?new ExtractionMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):confrontationChapter?new ConfrontationMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):breakoutChapter?new BreakoutMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
-    touch.reset();resetFlight();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
+    touch.reset();resetTouchAim();resetFlight();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
     music.setPaused(false);music.setTrack(stageMusic);stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',extractionChapter?'Everyone is aboard. Get us out of here!':confrontationChapter?'The convoy is clear. Finish this and get to the helicopter!':breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
@@ -179,7 +182,7 @@ class RescueScene extends Phaser.Scene{
   }
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
-    this.paused=paused;music.setPaused(paused);held.clear();coverPointers.clear();touch.reset();resetFlight();updateTouchCover();this.mission.commandCover(false);if(this.mission instanceof ExtractionMission){this.mission.target=undefined;this.mission.moveX=this.mission.moveY=0;}firing=false;this.pointerHeld=false;
+    this.paused=paused;music.setPaused(paused);held.clear();coverPointers.clear();touch.reset();resetTouchAim();resetFlight();updateTouchCover();this.mission.commandCover(false);if(this.mission instanceof ExtractionMission){this.mission.target=undefined;this.mission.moveX=this.mission.moveY=0;}firing=false;this.pointerHeld=false;
     if(paused){stopVoice();stopScream();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
@@ -271,7 +274,7 @@ class RescueScene extends Phaser.Scene{
     this.draw();
   }
   finish(){
-    held.clear();touch.reset();resetFlight();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
+    held.clear();touch.reset();resetTouchAim();resetFlight();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
     const advance=won&&nextChapter?'<button id="next-chapter">Play Next Chapter</button>':'';
     if(m instanceof ExtractionMission){
@@ -446,8 +449,9 @@ window.addEventListener('blur',()=>{if(scene?.started)scene.setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&scene?.started)scene.setPause(true);});
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);touch.firePointers.add(e.pointerId);});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('touch-fire').addEventListener(type,e=>{touch.firePointers.delete((e as PointerEvent).pointerId);if(scene?.mission instanceof ConfrontationMission&&!touch.firing)($('touch-aim') as HTMLInputElement).value=String(scene.mission.player.lane*50);}));
-$('touch-aim').addEventListener('input',()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;if(scene.mission instanceof ConfrontationMission){if(touch.firing||scene.mission.player.windup>0)scene.mission.throwDirection=Math.sign(Number(($('touch-aim') as HTMLInputElement).value)/50-scene.mission.player.lane);else scene.mission.setLane(Number(($('touch-aim') as HTMLInputElement).value)/50);return;}scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};});
-$('touch-aim').addEventListener('pointerdown',()=>unlockAudio());
+const applyTouchAim=()=>{if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;if(scene.mission instanceof ConfrontationMission){if(touch.firing||scene.mission.player.windup>0)scene.mission.throwDirection=Math.sign(Number(($('touch-aim') as HTMLInputElement).value)/50-scene.mission.player.lane);else scene.mission.setLane(Number(($('touch-aim') as HTMLInputElement).value)/50);return;}scene.mission.angle=touchAngle(Number(($('touch-aim') as HTMLInputElement).value));scene.aim={x:GUN.x+Math.cos(scene.mission.angle)*380,y:GUN.y+Math.sin(scene.mission.angle)*380};};
+$('touch-aim').addEventListener('input',applyTouchAim);
+resetTouchAim=bindPointerSlider($('touch-aim') as HTMLInputElement,()=>!!scene?.started&&!scene.paused&&scene.mission.state==='playing',()=>{unlockAudio();applyTouchAim();});
 $('touch-cover').addEventListener('click',()=>{if(extractionChapter){if(scene?.started&&!scene.paused&&scene.mission instanceof ExtractionMission){unlockAudio();scene.mission.rocket();}return;}if(confrontationChapter)return;if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();touch.toggleCover();updateTouchCover();});
 if(confrontationChapter){
   $('touch-cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);$('touch-cover').setAttribute('aria-pressed','true');});
@@ -459,8 +463,8 @@ $('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.star
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
 function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn],['music',musicOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn){stopScream();flushVoice();}unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
-$('music').addEventListener('click',()=>{musicOn=!musicOn;music.setEnabled(musicOn);music.unlock();try{localStorage.setItem('obth-music',musicOn?'on':'off');}catch{}updateToggles();});
-document.addEventListener('pointerdown',e=>{if(!scene?.started&&(e.target as HTMLElement).id!=='music')music.unlock();});
+$('music').addEventListener('click',()=>{musicOn=!musicOn;music.setEnabled(musicOn);unlockAudio();try{localStorage.setItem('obth-music',musicOn?'on':'off');}catch{}updateToggles();});
+document.addEventListener('pointerdown',e=>{if(!scene?.started&&(e.target as HTMLElement).id!=='music')unlockAudio();});
 window.addEventListener('blur',()=>music.setPaused(true));
 window.addEventListener('focus',()=>{if(!scene?.paused&&!document.hidden)music.setPaused(false);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)music.setPaused(true);else if(!scene?.paused)music.setPaused(false);});
@@ -468,12 +472,12 @@ $('voice').addEventListener('click',()=>{voiceOn=!voiceOn;radioVoice.setEnabled(
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});
 updateToggles();
-matchMedia('(pointer:coarse), (max-width:650px)').addEventListener('change',()=>{document.body.classList.toggle('touch-layout',mobileLayout());touch.reset();resetFlight();updateTouchCover();if(scene?.started)scene.setPause(true);});
+matchMedia('(pointer:coarse), (max-width:650px)').addEventListener('change',()=>{document.body.classList.toggle('touch-layout',mobileLayout());touch.reset();resetTouchAim();resetFlight();updateTouchCover();if(scene?.started)scene.setPause(true);});
 
 if(extractionChapter){
-  const pad=$('flight-pad');let pointer:number|undefined;
+  const pad=$('flight-pad');
   const steer=(e:PointerEvent)=>{const r=pad.getBoundingClientRect();flightX=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width*.4)));flightY=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/(r.height*.4)));if(Math.hypot(flightX,flightY)<.12)flightX=flightY=0;$('flight-nub').style.transform=`translate(calc(-50% + ${flightX*35}px),calc(-50% + ${flightY*35}px))`;};
-  pad.addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing'||pointer!==undefined)return;unlockAudio();pointer=e.pointerId;pad.setPointerCapture(pointer);steer(e);});
-  pad.addEventListener('pointermove',e=>{if(e.pointerId===pointer&&!scene.paused)steer(e);});
-  for(const kind of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(kind,e=>{if((e as PointerEvent).pointerId===pointer){pointer=undefined;resetFlight();}});
+  pad.addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing' )return;unlockAudio();resetFlight();flightPointer=e.pointerId;try{pad.setPointerCapture(flightPointer);}catch{}steer(e);});
+  window.addEventListener('pointermove',e=>{if(e.pointerId===flightPointer&&!scene.paused)steer(e);});
+  for(const kind of ['pointerup','pointercancel','lostpointercapture'])(kind==='lostpointercapture'?pad:window).addEventListener(kind,e=>{if((e as PointerEvent).pointerId===flightPointer)resetFlight();});
 }

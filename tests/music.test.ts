@@ -20,8 +20,16 @@ test('music pauses without losing its track and mute survives track changes',()=
   music.setEnabled(true);assert.equal(audio.src,'extraction');assert.equal(audio.plays,3);
 });
 test('music ducks for dialogue and recovers smoothly afterwards',()=>{
-  const {audio,music}=fixture();music.update(.05,true);assert.ok(audio.volume<.28&&audio.volume>.09);
-  for(let i=0;i<100;i++)music.update(.05,true);assert.ok(Math.abs(audio.volume-.09)<.001);
-  music.update(.05,false);assert.ok(audio.volume>.09&&audio.volume<.28);
-  for(let i=0;i<100;i++)music.update(.05,false);assert.ok(Math.abs(audio.volume-.28)<.001);
+  const {audio,music}=fixture();music.update(.05,true);assert.ok(audio.volume<.12&&audio.volume>.035);
+  for(let i=0;i<100;i++)music.update(.05,true);assert.ok(Math.abs(audio.volume-.035)<.001);
+  music.update(.05,false);assert.ok(audio.volume>.035&&audio.volume<.12);
+  for(let i=0;i<100;i++)music.update(.05,false);assert.ok(Math.abs(audio.volume-.12)<.001);
+});
+test('music uses mixer gain for volume and ducking even with fixed media volume',()=>{
+ const {audio,music}=fixture();let sources=0;const levels:number[]=[];
+ const gain={gain:{value:0,setValueAtTime(value:number){levels.push(value);}},connect(){}};
+ const context={currentTime:0,destination:{},createMediaElementSource(){sources++;return {connect(){}};},createGain(){return gain;}};
+ music.prepare(context as unknown as AudioContext);music.prepare(context as unknown as AudioContext);
+ assert.equal(sources,1);assert.equal(audio.volume,1);assert.equal(gain.gain.value,.12);
+ for(let i=0;i<100;i++)music.update(.05,true);assert.ok(Math.abs(levels.at(-1)!-.035)<.001);assert.equal(audio.volume,1);
 });
