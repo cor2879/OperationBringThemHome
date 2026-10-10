@@ -5,6 +5,9 @@ import retroScreamUrl from './audio/retro-scream.ts';
 import { TouchControls, touchAngle } from './controls.ts';
 import radioClips from './audio/radio-clips.ts';
 import { RadioVoice } from './audio/radio.ts';
+import { MusicPlayer } from './audio/music.ts';
+import extractionMusicUrl from './audio/music/extraction.mp3';
+import rescueMusicUrl from './audio/music/rescue.mp3';
 import { playDogBark } from './audio/dog.ts';
 import { drawBattlefield, drawCharacter, drawPlayerGun } from './art/render.ts';
 import {DefenseMission,CONVOY_ETA,BOARDING_TIME} from './defense.ts';
@@ -31,8 +34,11 @@ const mobileLayout=()=>matchMedia('(pointer:coarse), (max-width:650px)').matches
 document.body.classList.toggle('touch-layout',mobileLayout());
 function updateTouchCover(){ $('touch-cover').textContent=extractionChapter?'FIRE ROCKET':confrontationChapter?'HOLD DUCK':touch.cover?'GO!':'TAKE COVER';$('touch-cover').setAttribute('aria-pressed',String(touch.cover)); }
 const coverPointers=new Set<number>();
-let soundOn=true,voiceOn=true;
-try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';}catch{}
+let soundOn=true,voiceOn=true,musicOn=true;
+try{soundOn=localStorage.getItem('obth-sound')!=='off';voiceOn=localStorage.getItem('obth-voice')!=='off';musicOn=localStorage.getItem('obth-music')!=='off';}catch{}
+const musicElement=document.createElement('audio');musicElement.id='soundtrack';musicElement.hidden=true;document.body.append(musicElement);
+const music=new MusicPlayer(musicElement);music.setEnabled(musicOn);music.setTrack(extractionMusicUrl);
+const stageMusic=extractionChapter?extractionMusicUrl:!confrontationChapter&&!breakoutChapter&&!defenseChapter?rescueMusicUrl:undefined;
 let audio:AudioContext|undefined;
 let screamBuffer:AudioBuffer|undefined;
 let screamLoading:Promise<void>|undefined;
@@ -41,6 +47,7 @@ const radioVoice=new RadioVoice(radioClips);radioVoice.setEnabled(voiceOn);
 function stopVoice(){radioVoice.stop();}
 function flushVoice(){radioVoice.setBlocked(false);}
 function unlockAudio(){
+  music.unlock();
   audio??=new AudioContext();if(audio.state==='suspended')void audio.resume();
   void radioVoice.prepare(audio);
   screamLoading??=fetch(retroScreamUrl).then(r=>r.arrayBuffer()).then(bytes=>audio!.decodeAudioData(bytes)).then(buffer=>{screamBuffer=buffer;}).catch(()=>{});
@@ -160,7 +167,7 @@ class RescueScene extends Phaser.Scene{
     const difficulty=($('difficulty') as HTMLSelectElement|null)?.value||this.mission.difficulty;
     this.mission=extractionChapter?new ExtractionMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):confrontationChapter?new ConfrontationMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):breakoutChapter?new BreakoutMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):defenseChapter?new DefenseMission(Math.random,difficulty as 'rookie'|'regular'|'veteran'):new RescueMission(Math.random,difficulty as 'rookie'|'regular'|'veteran');this.started=true;this.paused=false;this.sparks=[];this.pointerHeld=false;held.clear();coverPointers.clear();firing=false;
     touch.reset();resetFlight();updateTouchCover();($('touch-aim') as HTMLInputElement).value='50';
-    stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',extractionChapter?'Everyone is aboard. Get us out of here!':confrontationChapter?'The convoy is clear. Finish this and get to the helicopter!':breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
+    music.setPaused(false);music.setTrack(stageMusic);stopVoice();stopScream();this.lastState='';overlay.hidden=true;$('pause').textContent='PAUSE';this.focus();unlockAudio();this.callout('CONTROL',extractionChapter?'Everyone is aboard. Get us out of here!':confrontationChapter?'The convoy is clear. Finish this and get to the helicopter!':breakoutChapter?'Convoy moving! Keep them off our tail!':defenseChapter?'Hold the outpost. The convoy is on its way.':'Prisoners are moving. Cover the route.',true);this.updateStatus();
   }
   callout(speaker:string,line:string,force=false,voiced=true){
     if(!force&&this.radioCooldown>0)return;
@@ -168,7 +175,7 @@ class RescueScene extends Phaser.Scene{
   }
   setPause(paused:boolean){
     if(!this.started||this.mission.state!=='playing')return;
-    this.paused=paused;held.clear();coverPointers.clear();touch.reset();resetFlight();updateTouchCover();this.mission.commandCover(false);if(this.mission instanceof ExtractionMission){this.mission.target=undefined;this.mission.moveX=this.mission.moveY=0;}firing=false;this.pointerHeld=false;
+    this.paused=paused;music.setPaused(paused);held.clear();coverPointers.clear();touch.reset();resetFlight();updateTouchCover();this.mission.commandCover(false);if(this.mission instanceof ExtractionMission){this.mission.target=undefined;this.mission.moveX=this.mission.moveY=0;}firing=false;this.pointerHeld=false;
     if(paused){stopVoice();stopScream();overlay.hidden=false;overlay.innerHTML='<p class="eyebrow">OPERATION ON HOLD</p><h2>PAUSED</h2><p>Your mission is waiting.</p><button id="resume">RESUME OPERATION →</button><button id="restart">RESTART MISSION</button>';}
     else{overlay.hidden=true;this.focus();}
     $('pause').textContent=paused?'RESUME':'PAUSE';this.updateStatus();
@@ -226,7 +233,7 @@ class RescueScene extends Phaser.Scene{
     if(e.kind==='reload'){tone(360,.07);}
   }
   update(_time:number,delta:number){
-    const dt=Math.min(delta/1000,.05);this.tick+=dt;
+    const dt=Math.min(delta/1000,.05);this.tick+=dt;music.update(dt,radioVoice.speaking||!!activeScream);
     if(!this.paused){
       this.radioCooldown-=dt;this.radioTime-=dt;if(this.radioTime<=0)this.radio.setText('');
       if(this.started&&this.mission.state==='playing'){
@@ -444,8 +451,13 @@ $('touch-reload').addEventListener('click',()=>scene?.mission.reload());
 $('cover').addEventListener('pointerdown',e=>{e.preventDefault();if(!scene?.started||scene.paused||scene.mission.state!=='playing')return;unlockAudio();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);coverPointers.add(e.pointerId);});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('cover').addEventListener(type,e=>{coverPointers.delete((e as PointerEvent).pointerId);}));
 $('pause').addEventListener('click',()=>{scene?.setPause(!scene.paused);});
-function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
+function updateToggles(){for(const [id,on] of [['sound',soundOn],['voice',voiceOn],['music',musicOn]] as const){$(id).textContent=id.toUpperCase()+' '+(on?'ON':'OFF');$(id).setAttribute('aria-pressed',String(on));}}
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;if(!soundOn){stopScream();flushVoice();}unlockAudio();try{localStorage.setItem('obth-sound',soundOn?'on':'off');}catch{}updateToggles();});
+$('music').addEventListener('click',()=>{musicOn=!musicOn;music.setEnabled(musicOn);music.unlock();try{localStorage.setItem('obth-music',musicOn?'on':'off');}catch{}updateToggles();});
+document.addEventListener('pointerdown',e=>{if(!scene?.started&&(e.target as HTMLElement).id!=='music')music.unlock();});
+window.addEventListener('blur',()=>music.setPaused(true));
+window.addEventListener('focus',()=>{if(!scene?.paused&&!document.hidden)music.setPaused(false);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)music.setPaused(true);else if(!scene?.paused)music.setPaused(false);});
 $('voice').addEventListener('click',()=>{voiceOn=!voiceOn;radioVoice.setEnabled(voiceOn);unlockAudio();if(voiceOn)speak('Radio check. Voice channel online.');try{localStorage.setItem('obth-voice',voiceOn?'on':'off');}catch{}updateToggles();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.cabinet')!.requestFullscreen();scene?.focus();}catch{$('fullscreen').textContent='UNAVAILABLE';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'EXIT FULLSCREEN':'FULLSCREEN';});

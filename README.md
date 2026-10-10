@@ -106,3 +106,5 @@ Field Test 29: four evenly spaced repair drops replace the two old repair drops.
 Field Test 30: the gunship-clear radio call and its bundled Flite recording now say “Congratulations, you've cleared enemy territory. Bring them home!”
 
 Field Test 31: Extraction results include New Game, which reloads a fresh Chapter 1 and starts the operation once the field is ready. Fly Again still retries Extraction. The new-game launch flag is removed from the URL after it is consumed, so later reloads show the normal briefing.
+
+Field Test 32: David Cole’s supplied Rescue and Extraction tracks are streamed as normalized 96 kbps stereo MP3s. Extraction plays on chapter briefings/title views after a user gesture and in Chapter 5; Rescue plays in Chapter 1. Chapters 2–4 await their own tracks. Music loops, pauses with the mission or hidden tab, and ducks beneath radio speech and casualty screams. MUSIC is independent of SOUND/VOICE and its preference persists. Original WAV masters remain in the supplied files.

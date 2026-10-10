@@ -9,6 +9,7 @@ export class RadioVoice{
   private waiting?:string;
   private clips:Record<string,string>;
   constructor(clips:Record<string,string>){this.clips=clips;}
+  get speaking(){return !!this.active;}
   prepare(context:AudioContext){
     this.context=context;
     this.loading??=Promise.all(Object.entries(this.clips).map(async([line,base64])=>{
