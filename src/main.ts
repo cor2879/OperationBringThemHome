@@ -178,7 +178,7 @@ class RescueScene extends Phaser.Scene{
   handleEvent(e:MissionEvent){
     if(e.kind==='duelround'||e.kind==='duelstart'){held.clear();coverPointers.clear();$('touch-cover').setAttribute('aria-pressed','false');touch.reset();firing=false;this.pointerHeld=false;($('touch-aim') as HTMLInputElement).value='50';updateTouchCover();if(e.kind==='duelround')tone(e.shooter==='player'?700:160,.2,'triangle',.04);else this.callout('COMMANDANT',"You can’t hurt meeee!",true);}
 
-    if(e.kind==='airinstallation'){tone(185,.2,'square',.025);this.callout('CONTROL','Anti-aircraft site! Take out the radar!',true);}
+    if(e.kind==='airinstallation')tone(185,.2,'square',.025);
     if(e.kind==='airrocket')tone(155,.18,'sawtooth',.035);
     if(e.kind==='airblast')this.burst(e.x,e.y,0xffc278,35);
     if(e.kind==='helidamage'){this.burst(e.x,e.y,0xf5b966,10);tone(75,.12,'sawtooth',.035);}
