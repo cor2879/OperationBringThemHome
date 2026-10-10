@@ -22,7 +22,7 @@ body.touch-layout .cabinet .touch-controls{display:grid}body.touch-layout .cabin
 
 /* Phone landscape is a self-contained cabinet, with thumb controls beside the field.
    dvh follows the browser chrome; safe-area padding leaves room for phone notches. */
-@media (orientation:landscape) and (max-height:600px){
+@media (orientation:landscape){
   body.touch-layout{overflow:hidden;overscroll-behavior:none}
   body.touch-layout>header,body.touch-layout main>:not(.cabinet){display:none}
   body.touch-layout main{padding:0;max-width:none}
