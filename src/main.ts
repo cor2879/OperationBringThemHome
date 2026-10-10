@@ -25,6 +25,7 @@ const extractionChapter=new URLSearchParams(location.search).get('chapter')==='e
 const confrontationChapter=new URLSearchParams(location.search).get('chapter')==='confrontation';
 const breakoutChapter=new URLSearchParams(location.search).get('chapter')==='breakout';
 const defenseChapter=new URLSearchParams(location.search).get('chapter')==='defense';
+const nextChapter=extractionChapter?undefined:confrontationChapter?'extraction':breakoutChapter?'confrontation':defenseChapter?'breakout':'defense';
 declare const Phaser: typeof PhaserType;
 
 const $=(id:string)=>document.getElementById(id)!;
@@ -272,22 +273,23 @@ class RescueScene extends Phaser.Scene{
   finish(){
     held.clear();touch.reset();resetFlight();updateTouchCover();firing=false;this.pointerHeld=false;this.updateStatus();
     const won=this.mission.state==='won',m=this.mission;
+    const advance=won&&nextChapter?'<button id="next-chapter">Play Next Chapter</button>':'';
     if(m instanceof ExtractionMission){
       this.callout('CONTROL',won?'Everyone is home. Mission accomplished!':'Pull back. The operation is over.',true);
       overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT / CHAPTER 05</p><h2>${won?'THEY ARE HOME.':'THE HELICOPTER WAS LOST.'}</h2><p>${won?'The survivors made it. The five-chapter operation is complete.':m.health<=0?'The helicopter took too much damage.':'The command gunship blocked the escape.'}</p><div class="report"><span><b>${m.score}</b>SCORE</span><span><b>${m.kills}</b>TARGETS CLEARED</span><span><b>${m.health}%</b>ARMOR LEFT</span></div><div class="report-actions"><button id="new-game">New Game</button><button id="restart">FLY AGAIN →</button></div><small>New Game starts a fresh operation from Chapter 1.</small>`;return;
     }
     if(m instanceof ConfrontationMission){
       this.callout('CONTROL',won?'The route is clear. Get to the helicopter!':'Pull back. The operation is over.',true);
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE COMMANDANT IS DOWN.':'THE CONFRONTATION WAS LOST.'}</h2><p>${won?'The survivors are waiting. The helicopter is your last way home.':m.player.health<=0?'You were caught by the commandant’s knives.':'Time ran out. The route is still blocked.'}</p><div class="report"><span><b>${m.playerRounds}–${m.enemyRounds}</b>ROUND SCORE</span><span><b>${m.dodges}</b>KNIVES DODGED</span><span><b>${m.player.health}</b>HEALTH LEFT</span></div><button id="restart">DUEL AGAIN →</button><small>${won?'Chapter 05 — Extraction is ready above.':'Watch his raised arm. Release DUCK to recover stamina.'}</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE COMMANDANT IS DOWN.':'THE CONFRONTATION WAS LOST.'}</h2><p>${won?'The survivors are waiting. The helicopter is your last way home.':m.player.health<=0?'You were caught by the commandant’s knives.':'Time ran out. The route is still blocked.'}</p><div class="report"><span><b>${m.playerRounds}–${m.enemyRounds}</b>ROUND SCORE</span><span><b>${m.dodges}</b>KNIVES DODGED</span><span><b>${m.player.health}</b>HEALTH LEFT</span></div><div class="report-actions">${advance}<button id="restart">DUEL AGAIN →</button></div><small>${won?'Next: Chapter 05 — Extraction.':'Watch his raised arm. Release DUCK to recover stamina.'}</small>`;return;
     }
     this.callout('CONTROL',won?(breakoutChapter?'Checkpoint reached. The convoy is safe.':'Extraction confirmed. You brought them home.'):'Pull back. The operation is over.',true);
     if(breakoutChapter){
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY BROKE THROUGH.':'THE ESCAPE WAS STOPPED.'}</h2><p>${won?'The survivors reached the bridge checkpoint.':m.health<=0?'Your rescue truck was disabled.':m.lost>=3?'Three friendly trucks were lost.':'The final armored pursuer reached the bridge.'}</p><div class="report"><span><b>${m.rescued}</b>TRUCKS SAFE</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>PURSUERS</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Chapter 04 — The Confrontation is ready above.':'Let friendly trucks clear your aim. Use enemy reload windows.'}</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY BROKE THROUGH.':'THE ESCAPE WAS STOPPED.'}</h2><p>${won?'The survivors reached the bridge checkpoint.':m.health<=0?'Your rescue truck was disabled.':m.lost>=3?'Three friendly trucks were lost.':'The final armored pursuer reached the bridge.'}</p><div class="report"><span><b>${m.rescued}</b>TRUCKS SAFE</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>PURSUERS</span></div><div class="report-actions">${advance}<button id="restart">TRY ANOTHER OPERATION →</button></div><small>${won?'Next: Chapter 04 — The Confrontation.':'Let friendly trucks clear your aim. Use enemy reload windows.'}</small>`;return;
     }
     if(defenseChapter){
-      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY IS AWAY.':'THE LINE WAS BROKEN.'}</h2><p>${won?'The survivors are heading home. You held the outpost.':m.health<=0?'The gun position was overrun.':'Three stretcher teams were lost.'}</p><div class="report"><span><b>${m.rescued}</b>TEAMS SAFE</span><span><b>${m.lost}</b>TEAMS LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>Prioritize sappers. Reload while enemy crews reload.</small>`;return;
+      overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THE CONVOY IS AWAY.':'THE LINE WAS BROKEN.'}</h2><p>${won?'The survivors are heading home. You held the outpost.':m.health<=0?'The gun position was overrun.':'Three stretcher teams were lost.'}</p><div class="report"><span><b>${m.rescued}</b>TEAMS SAFE</span><span><b>${m.lost}</b>TEAMS LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><div class="report-actions">${advance}<button id="restart">TRY ANOTHER OPERATION →</button></div><small>${won?'Next: Chapter 03 — Breakout.':'Prioritize sappers. Reload while enemy crews reload.'}</small>`;return;
     }
-    overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><button id="restart">TRY ANOTHER OPERATION →</button><small>${won?'Try Chapter 02: Hold the Line.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
+    overlay.hidden=false;overlay.innerHTML=`<p class="eyebrow">AFTER ACTION REPORT</p><h2>${won?'THEY ARE COMING HOME.':'OPERATION LOST.'}</h2><p>${won?'Your covering fire made the difference.':m.health<=0?'Your gun position was overrun.':m.lost>4?'Too many prisoners were lost.':'The extraction window closed.'}</p><div class="report"><span><b>${m.rescued}</b>RESCUED</span><span><b>${m.lost}</b>LOST</span><span><b>${m.kills}</b>HOSTILES</span></div><div class="report-actions">${advance}<button id="restart">TRY ANOTHER OPERATION →</button></div><small>${won?'Next: Chapter 02 — Hold the Line.':'Aim ahead of moving targets. Reload between waves.'}</small>`;
   }
   burst(x:number,y:number,color:number,n:number){for(let i=0;i<n;i++)this.sparks.push({x,y,color,life:.2+Math.random()*.2,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100});}
   drawField(g:PhaserType.GameObjects.Graphics){
@@ -426,6 +428,7 @@ if(typeof Phaser==='undefined'){
 }
 overlay.addEventListener('click',e=>{
   const id=(e.target as HTMLElement).id;
+  if(id==='next-chapter'&&scene.mission.state==='won'&&nextChapter){stopVoice();stopScream();location.assign('./?chapter='+nextChapter);return;}
   if(id==='new-game'){stopVoice();stopScream();location.assign('./?newgame=1');return;}
   if(id==='begin'||id==='restart')scene.start();if(id==='resume')scene.setPause(false);
 });
